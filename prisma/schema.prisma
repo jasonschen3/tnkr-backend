@@ -32,6 +32,15 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   password  String
+
+  isVerified Boolean @default(false)
+}
+
+model VerificationToken {
+  code      String   @id @default(uuid())
+  email     String
+  createdAt DateTime @default(now())
+  expiresAt DateTime // 1hr
 }
 
 // model UserInfo {
