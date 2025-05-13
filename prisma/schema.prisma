@@ -20,7 +20,7 @@ enum Role {
   ADMIN
 }
 
-model users {
+model User {
   id        String   @id @default(uuid())
   firstName String
   lastName  String
@@ -32,6 +32,9 @@ model users {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   password  String
-
-  @@map("users")
 }
+
+// model UserInfo {
+//   id String @id @default(uuid())
+
+// }
