@@ -208,6 +208,7 @@ router.post("/register", async (req, res) => {
         code: verificationCode,
         email: email,
         expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
+        type: "EMAIL_VERIFICATION",
       },
     });
 
@@ -297,6 +298,159 @@ router.post("/login", async (req, res) => {
     return res.status(500).json({
       message: "Internal server error",
     });
+  }
+});
+
+// Request password reset
+router.post("/forgot-password", async (req, res) => {
+  const { email } = req.body;
+  console.log("Password reset requested for:", email);
+
+  try {
+    const user = await prisma.User.findUnique({
+      where: { email },
+    });
+
+    if (!user) {
+      // Return success even if user doesn't exist for security
+      return res.status(200).json({
+        message:
+          "If an account exists with this email, you will receive a password reset link",
+      });
+    }
+
+    // Generate reset token
+    const resetCode = generateVerificationCode();
+
+    // Store reset token
+    await prisma.VerificationToken.create({
+      data: {
+        code: resetCode,
+        email: email,
+        expiresAt: new Date(Date.now() + 1 * 60 * 60 * 1000), // 1 hour
+        type: "PASSWORD_RESET",
+      },
+    });
+
+    // Send reset email
+    const resetLink = `${process.env.FRONTEND_URL}/reset-password?code=${resetCode}`;
+    const mailOptions = {
+      from: `"TNKR" <${process.env.GMAIL_USER}>`,
+      to: email,
+      subject: "Reset your password",
+      html: `
+        <h1>TNKR Password Reset</h1>
+        <p>Please click the link below to reset your password:</p>
+        <a href="${resetLink}">Reset Password</a>
+        <p>This link will expire in 1 hour.</p>
+      `,
+    };
+
+    await transporter.sendMail(mailOptions);
+
+    return res.status(200).json({
+      message:
+        "If an account exists with this email, you will receive a password reset link",
+    });
+  } catch (err) {
+    console.error("Error during password reset request:", err);
+    return res
+      .status(500)
+      .json({ message: "Error processing password reset request" });
+  }
+});
+
+// Reset password
+router.post("/reset-password", async (req, res) => {
+  const { code, newPassword } = req.body;
+  console.log("Password reset attempt with code:", code);
+
+  try {
+    const verificationToken = await prisma.VerificationToken.findUnique({
+      where: {
+        code,
+        type: "PASSWORD_RESET",
+      },
+    });
+
+    if (!verificationToken) {
+      return res.status(400).json({ message: "Invalid reset code" });
+    }
+
+    if (verificationToken.expiresAt < new Date()) {
+      return res.status(400).json({ message: "Reset code has expired" });
+    }
+
+    // Hash new password
+    const hashedPassword = await hashPassword(newPassword);
+
+    // Update user's password
+    await prisma.User.update({
+      where: { email: verificationToken.email },
+      data: { password: hashedPassword },
+    });
+
+    // Delete used token
+    await prisma.VerificationToken.delete({
+      where: { code },
+    });
+
+    return res
+      .status(200)
+      .json({ message: "Password has been reset successfully" });
+  } catch (err) {
+    console.error("Error during password reset:", err);
+    return res.status(500).json({ message: "Error resetting password" });
+  }
+});
+
+// Resend verification email
+router.post("/resend-verification", async (req, res) => {
+  const { email } = req.body;
+  console.log("Resend verification requested for:", email);
+
+  try {
+    const user = await prisma.User.findUnique({
+      where: { email },
+    });
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    if (user.isVerified) {
+      return res.status(400).json({ message: "Email is already verified" });
+    }
+
+    // Generate new verification code
+    const verificationCode = generateVerificationCode();
+
+    // Delete any existing verification tokens for this email
+    await prisma.VerificationToken.deleteMany({
+      where: { email },
+    });
+
+    // Create new verification token
+    await prisma.VerificationToken.create({
+      data: {
+        code: verificationCode,
+        email: email,
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
+        type: "EMAIL_VERIFICATION",
+      },
+    });
+
+    // Send new verification email
+    await sendVerificationEmail(email, verificationCode);
+
+    return res.status(200).json({
+      message: "Verification email has been resent",
+    });
+  } catch (err) {
+    console.error("Error resending verification email:", err);
+    return res
+      .status(500)
+      .json({ message: "Error resending verification email" });
   }
 });
 

@@ -36,11 +36,17 @@ model User {
   isVerified Boolean @default(false)
 }
 
+enum VerificationType {
+  EMAIL_VERIFICATION
+  PASSWORD_RESET
+}
+
 model VerificationToken {
-  code      String   @id @default(uuid())
+  code      String            @id @default(uuid())
   email     String
-  createdAt DateTime @default(now())
+  createdAt DateTime          @default(now())
   expiresAt DateTime // 1hr
+  type      VerificationType?
 }
 
 // model UserInfo {
