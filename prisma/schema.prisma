@@ -34,6 +34,8 @@ model User {
   password  String
 
   isVerified Boolean @default(false)
+  // Request    Request[]
+  // Address    Address[]
 }
 
 enum VerificationType {
@@ -49,7 +51,36 @@ model VerificationToken {
   type      VerificationType?
 }
 
-// model UserInfo {
-//   id String @id @default(uuid())
+// enum ServiceType {
+//   CLEANING
+//   CUSTOM
+//   RESTORATION
+// }
 
+// model Request {
+//   id             String   @id @default(uuid())
+//   pictures       String[]
+//   jobDescription String
+//   budget         Int
+//   shoeSize       Int
+
+//   // ASK ABOUT THIS AND ADDRESS FIELDS
+//   brand                String
+//   releaseYear          Int
+//   previouslyWorkedWith Boolean
+
+//   // Add this field for the relation
+//   userId String
+//   user   User   @relation(fields: [userId], references: [id])
+// }
+
+// model Address {
+//   id        String @id @default(uuid())
+//   street    String
+//   city      String
+//   stateCode String
+//   zipCode   String
+
+//   userId String
+//   user   User   @relation(fields: [userId], references: [id])
 // }

@@ -30,7 +30,7 @@ function generateVerificationCode() {
 
 function generateToken(user) {
   const payload = {
-    id: user.user_id,
+    id: user.id,
     username: user.username,
     role: user.role,
     email: user.email,
@@ -231,7 +231,7 @@ router.post("/register", async (req, res) => {
   }
 });
 
-// Email
+// Login with email
 router.post("/login", async (req, res) => {
   const { email, password } = req.body;
   console.log("Attempting login with email:", email);
@@ -287,7 +287,7 @@ router.post("/login", async (req, res) => {
       message: "Login successful",
       token,
       user: {
-        id: user.user_id,
+        id: user.id,
         username: user.username,
         email: user.email,
         role: user.role,
