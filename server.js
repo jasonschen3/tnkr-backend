@@ -7,6 +7,7 @@ import Stripe from "stripe";
 import { prisma } from "./lib/prisma.js";
 
 import authRoutes from "./routes/auth.js";
+import userRoutes from "./routes/users.js";
 
 env.config();
 
@@ -15,6 +16,7 @@ app.use(cors());
 app.use(bodyParser.json());
 
 app.use("/auth", authRoutes);
+app.use("/users", userRoutes);
 
 // const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 

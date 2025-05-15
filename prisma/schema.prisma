@@ -28,14 +28,16 @@ model User {
   username  String   @unique
   email     String   @unique
   role      Role
-  photo     String? // URL to the stored photo
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   password  String
 
   isVerified Boolean @default(false)
-  // Request    Request[]
+
+  profilePictureUrl String? // S3 URL to the stored photo
+
   // Address    Address[]
+  // Request Request[]
 }
 
 enum VerificationType {
@@ -61,8 +63,8 @@ model VerificationToken {
 //   id             String   @id @default(uuid())
 //   pictures       String[]
 //   jobDescription String
-//   budget         Int
-//   shoeSize       Int
+//   budget         Int // Whole integer
+//   shoeSize       Float // Men's size convert to women's
 
 //   // ASK ABOUT THIS AND ADDRESS FIELDS
 //   brand                String

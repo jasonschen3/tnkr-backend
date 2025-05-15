@@ -8,6 +8,10 @@ import dotenv from "dotenv";
 import nodemailer from "nodemailer";
 import crypto from "crypto";
 
+// Image storage
+import multer from "multer";
+import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+
 dotenv.config();
 
 const router = express.Router();
@@ -22,6 +26,35 @@ const transporter = nodemailer.createTransport({
     pass: process.env.GMAIL_PASSWORD,
   },
 });
+
+const storage = multer.memoryStorage();
+const upload = multer({ storage: storage });
+
+const s3 = new S3Client({
+  credentials: {
+    accessKeyId: process.env.ACCESS_KEY,
+    secretAccessKey: process.env.SECRET_ACCESS_KEY,
+  },
+  region: process.env.BUCKET_REGION,
+});
+
+// Sends to S3 bucket and names it with userId
+async function sendToBucket(file, userId) {
+  const fileExtension = file.originalname.split(".").pop();
+  const key = `profile-pictures/${userId}.${fileExtension}`;
+
+  const params = {
+    Bucket: process.env.BUCKET_NAME,
+    Key: key,
+    Body: file.buffer,
+    ContentType: file.mimetype,
+  };
+
+  const command = new PutObjectCommand(params);
+  await s3.send(command);
+
+  return `https://${process.env.BUCKET_NAME}.s3.${process.env.BUCKET_REGION}.amazonaws.com/${key}`;
+}
 
 // Generate verification token for email
 function generateVerificationCode() {
@@ -160,18 +193,10 @@ router.get("/verify-email", async (req, res) => {
   }
 });
 
-router.post("/register", async (req, res) => {
+router.post("/register", upload.single("photo"), async (req, res) => {
   try {
-    const {
-      firstName,
-      lastName,
-      phone,
-      username,
-      email,
-      role,
-      photo,
-      password,
-    } = req.body;
+    const { firstName, lastName, phone, username, email, role, password } =
+      req.body;
 
     // Check username and email existence
     const userExists = await checkUserExists(username);
@@ -186,7 +211,7 @@ router.post("/register", async (req, res) => {
 
     const hashedPassword = await hashPassword(password);
 
-    // Create user
+    // Create user first to get the ID
     const newUser = await prisma.User.create({
       data: {
         firstName,
@@ -195,11 +220,22 @@ router.post("/register", async (req, res) => {
         username,
         email,
         role: role || "COLLECTOR",
-        photo,
         password: hashedPassword,
         isVerified: false,
       },
     });
+
+    // Upload profile picture if provided
+    let profilePictureUrl = null;
+    if (req.file) {
+      profilePictureUrl = await sendToBucket(req.file, newUser.id);
+
+      // Update user with profile picture URL
+      await prisma.User.update({
+        where: { id: newUser.id },
+        data: { profilePictureUrl: profilePictureUrl },
+      });
+    }
 
     // Create verification token
     const verificationCode = generateVerificationCode();
@@ -219,6 +255,7 @@ router.post("/register", async (req, res) => {
     const { password: _, ...userWithoutPassword } = newUser;
     return res.status(201).json({
       ...userWithoutPassword,
+      profilePicture: profilePictureUrl,
       message:
         "Registration successful. Please check your email to verify your account.",
     });
