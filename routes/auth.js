@@ -74,7 +74,15 @@ function generateToken(user) {
 }
 
 export function verifyToken(req, res, next) {
-  const token = req.headers["access-token"];
+  // Support both Authorization and access-token headers
+  let token = req.headers["access-token"];
+  if (!token && req.headers.authorization) {
+    // Extract Bearer token
+    const authHeader = req.headers.authorization;
+    if (authHeader.startsWith("Bearer ")) {
+      token = authHeader.slice(7);
+    }
+  }
   if (!token) {
     return res.status(403).send("No token provided");
   }

@@ -8,6 +8,7 @@ import { prisma } from "./lib/prisma.js";
 
 import authRoutes from "./routes/auth.js";
 import userRoutes from "./routes/users.js";
+import requestsRoutes from "./routes/requests.js";
 
 env.config();
 
@@ -17,6 +18,7 @@ app.use(bodyParser.json());
 
 app.use("/auth", authRoutes);
 app.use("/users", userRoutes);
+app.use("/requests", requestsRoutes);
 
 // const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 

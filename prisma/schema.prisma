@@ -21,23 +21,21 @@ enum Role {
 }
 
 model User {
-  id        String   @id @default(uuid())
-  firstName String
-  lastName  String
-  phone     String
-  username  String   @unique
-  email     String   @unique
-  role      Role
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  password  String
-
-  isVerified Boolean @default(false)
-
+  id                String    @id @default(uuid())
+  firstName         String
+  lastName          String
+  phone             String
+  username          String    @unique
+  email             String    @unique
+  role              Role
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  password          String
+  isVerified        Boolean   @default(false)
   profilePictureUrl String? // S3 URL to the stored photo
-
-  // Address    Address[]
-  // Request Request[]
+  // Post register
+  rating            Float?
+  requests          Request[]
 }
 
 enum VerificationType {
@@ -53,36 +51,88 @@ model VerificationToken {
   type      VerificationType?
 }
 
-// enum ServiceType {
-//   CLEANING
-//   CUSTOM
-//   RESTORATION
-// }
+enum ServiceType {
+  CLEANING
+  CUSTOM
+  RESTORATION
+}
 
-// model Request {
-//   id             String   @id @default(uuid())
-//   pictures       String[]
-//   jobDescription String
-//   budget         Int // Whole integer
-//   shoeSize       Float // Men's size convert to women's
+enum CleaningSubtype {
+  LIGHT_CLEAN
+  DEEP_CLEAN
+  STAIN_REMOVAL
+  DEODORIZATION
+  DEOXIDIZE_NETTING
+  DEOXIDIZE_RUBBER_SOLES
+  DESIGNER_SHOE_CLEAN
+  ICE_CLEAR_SOLES
+  SUEDE_NUBUCK_CLEAN
+  UPPER_REPAINT
+  OTHER
+}
 
-//   // ASK ABOUT THIS AND ADDRESS FIELDS
-//   brand                String
-//   releaseYear          Int
-//   previouslyWorkedWith Boolean
+enum CustomSubtype {
+  DYE
+  NEO_VINTAGE
+  PAINT
+  OTHER
+}
 
-//   // Add this field for the relation
-//   userId String
-//   user   User   @relation(fields: [userId], references: [id])
-// }
+enum RestorationSubtype {
+  BACK_TABS_SWAP
+  CLEAN_BEFORE_RESTORING
+  GLUE_TOUCH_UP
+  ICE_CLEAR_SOLES
+  MIDSOLE_REPAINT
+  PAINT_TOUCH_UP
+  REGLUE
+  REPLACE_NETTING
+  REPLACE_WINGS
+  SOLE_SWAPS_WITH_DONOR_SOLES
+  SOLE_SWAPS_WITHOUT_DONOR_SOLES
+  SUEDE_NUBUCK_REDYE
+  UPPER_REPAINT
+  OTHER
+}
 
-// model Address {
-//   id        String @id @default(uuid())
-//   street    String
-//   city      String
-//   stateCode String
-//   zipCode   String
+enum RequestType {
+  STANDARD
+  RUSH
+  BULK
+}
 
-//   userId String
-//   user   User   @relation(fields: [userId], references: [id])
-// }
+model Request {
+  id             String   @id @default(uuid())
+  pictures       String[]
+  jobDescription String
+  budget         Int // Whole integer
+  shoeSize       Float // Men's size convert to women's
+
+  brand                String
+  shoeName             String
+  releaseYear          Int
+  previouslyWorkedWith String // Description
+
+  // Service details
+  service  ServiceType
+  subtypes String[]
+
+  // Post submit
+
+  // Relations (user and address)
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  ownerAddress Address @relation(fields: [addressId], references: [id])
+  addressId    String  @unique
+}
+
+model Address {
+  id        String @id @default(uuid())
+  street    String
+  city      String
+  stateCode String
+  zipCode   String
+
+  request Request?
+}
