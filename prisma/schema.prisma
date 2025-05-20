@@ -101,6 +101,12 @@ enum RequestType {
   BULK
 }
 
+enum RequestStatus {
+  ACTIVE
+  ONGOING
+  COMPLETE
+}
+
 model Request {
   id             String   @id @default(uuid())
   pictures       String[]
@@ -118,6 +124,7 @@ model Request {
   subtypes String[]
 
   // Post submit
+  requestStatus RequestStatus @default(ACTIVE)
 
   // Relations (user and address)
   userId String
