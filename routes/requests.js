@@ -114,7 +114,7 @@ router.post("/", verifyToken, upload.array("pictures"), async (req, res) => {
   }
 });
 
-// ACTIVE AND ONGOING
+// BOOKED AND IN_PROGRESS
 router.get("/current", verifyToken, async (req, res) => {
   const userId = req.user.id; // from VerifyToken
 
@@ -123,7 +123,7 @@ router.get("/current", verifyToken, async (req, res) => {
       where: {
         userId: userId,
         requestStatus: {
-          in: ["ACTIVE", "ONGOING"],
+          in: ["BOOKED", "IN_PROGRESS"],
         },
       },
       include: {

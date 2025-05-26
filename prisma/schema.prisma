@@ -21,21 +21,24 @@ enum Role {
 }
 
 model User {
-  id                String    @id @default(uuid())
+  id                String   @id @default(uuid())
   firstName         String
   lastName          String
   phone             String
-  username          String    @unique
-  email             String    @unique
+  username          String   @unique
+  email             String   @unique
   role              Role
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
   password          String
-  isVerified        Boolean   @default(false)
+  isVerified        Boolean  @default(false)
   profilePictureUrl String? // S3 URL to the stored photo
-  // Post register
-  rating            Float?
-  requests          Request[]
+
+  // Ratings
+  ratingsGiven    Review[] @relation("Reviewer")
+  ratingsReceived Review[] @relation("Reviewee")
+
+  requests Request[]
 }
 
 enum VerificationType {
@@ -102,8 +105,8 @@ enum RequestType {
 }
 
 enum RequestStatus {
-  ACTIVE // Booked
-  ONGOING //IN_PROGRESS
+  BOOKED // Booked
+  IN_PROGRES //IN_PROGRESS
   COMPLETE
 }
 
@@ -142,4 +145,19 @@ model Address {
   zipCode   String
 
   request Request?
+}
+
+model Review {
+  id          String   @id @default(uuid())
+  rating      Int
+  description String
+  createdAt   DateTime @default(now())
+
+  // Person who wrote review
+  reviewerId String
+  reviewer   User   @relation("Reviewer", fields: [reviewerId], references: [id])
+
+  // Person being reviewed
+  revieweeId String
+  reviewee   User   @relation("Reviewee", fields: [revieweeId], references: [id])
 }
