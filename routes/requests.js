@@ -48,7 +48,6 @@ router.post("/", verifyToken, upload.array("pictures"), async (req, res) => {
       city,
       stateCode,
       zipCode,
-      recommendedPrice,
     } = req.body;
 
     // Create address first
@@ -112,6 +111,54 @@ router.post("/", verifyToken, upload.array("pictures"), async (req, res) => {
       error: "Failed to create request",
       details: error.message,
     });
+  }
+});
+
+// ACTIVE AND ONGOING
+router.get("/current", verifyToken, async (req, res) => {
+  const userId = req.user.id; // from VerifyToken
+
+  try {
+    const requests = await prisma.Request.findMany({
+      where: {
+        userId: userId,
+        requestStatus: {
+          in: ["ACTIVE", "ONGOING"],
+        },
+      },
+      include: {
+        ownerAddress: true,
+      },
+      orderBy: {
+        requestStatus: "desc",
+      },
+    });
+
+    return res.status(200).json(requests);
+  } catch (error) {
+    console.error("Error fetching current requests", error);
+  }
+});
+
+router.get("/completed", verifyToken, async (req, res) => {
+  const userId = req.user.id;
+
+  try {
+    const requests = await prisma.Request.findMany({
+      where: {
+        userId: userId,
+        requestStatus: "COMPLETE",
+      },
+      include: {
+        ownerAddress: true,
+      },
+      orderBy: {
+        // eventually by date created
+      },
+    });
+    return res.status(200).json(requests);
+  } catch (error) {
+    console.error("Error fetching completed orders", error);
   }
 });
 

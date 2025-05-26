@@ -69,7 +69,7 @@ function generateToken(user) {
     email: user.email,
   };
 
-  const options = { expiresIn: "2h" };
+  const options = { expiresIn: "24h" };
   return jwt.sign(payload, secretKey, options);
 }
 
