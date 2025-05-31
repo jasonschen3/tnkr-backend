@@ -26,11 +26,6 @@ app.get("/", (req, res) => {
   res.send("Hello World");
 });
 
-app.get("/users", async (req, res) => {
-  const users = await prisma.user.findMany();
-  res.json(users);
-});
-
 app.listen(process.env.BACKEND_PORT, () => {
   console.log(`Server is running on port ${process.env.BACKEND_PORT}`);
 });
