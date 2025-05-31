@@ -64,7 +64,6 @@ function generateVerificationCode() {
 function generateToken(user) {
   const payload = {
     id: user.id,
-    username: user.username,
     role: user.role,
     email: user.email,
   };
@@ -117,20 +116,6 @@ async function comparePassword(plainPassword, hashedPassword) {
 async function hashPassword(password) {
   const hashedPassword = await bcrypt.hash(password, saltRounds);
   return hashedPassword;
-}
-
-async function checkUserExists(username) {
-  try {
-    const user = await prisma.user.findUnique({
-      where: {
-        username: username,
-      },
-    });
-    return user !== null;
-  } catch (err) {
-    console.error("Error checking user existence:", err);
-    throw err;
-  }
 }
 
 async function checkEmailExists(email) {
@@ -206,12 +191,7 @@ router.post("/register", upload.single("photo"), async (req, res) => {
     const { firstName, lastName, phone, username, email, role, password } =
       req.body;
 
-    // Check username and email existence
-    const userExists = await checkUserExists(username);
-    if (userExists) {
-      return res.status(409).json({ message: "Username already exists" });
-    }
-
+    // Check email existence
     const emailExists = await checkEmailExists(email);
     if (emailExists) {
       return res.status(409).json({ message: "Email already exists" });
@@ -225,7 +205,6 @@ router.post("/register", upload.single("photo"), async (req, res) => {
         firstName,
         lastName,
         phone,
-        username,
         email,
         role: role || "COLLECTOR",
         password: hashedPassword,
@@ -294,7 +273,6 @@ router.post("/login", async (req, res) => {
       where: { email },
       select: {
         id: true,
-        username: true,
         email: true,
         password: true,
         role: true,

@@ -1,0 +1,163 @@
+//// ------------------------------------------------------
+//// THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
+//// ------------------------------------------------------
+
+Table User {
+  id String [pk]
+  firstName String [not null]
+  lastName String [not null]
+  phone String [not null]
+  username String [unique, not null]
+  email String [unique, not null]
+  role Role [not null]
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+  password String [not null]
+  isVerified Boolean [not null, default: false]
+  profilePictureUrl String
+  ratingsGiven Review [not null]
+  ratingsReceived Review [not null]
+  customerRequests Request [not null]
+  technicianRequests Request [not null]
+  technicianProfile TechnicianProfile
+}
+
+Table TechnicianProfile {
+  userId String [pk]
+  user User [not null]
+  servicesProvided ServiceType[] [not null]
+  businessName String [not null]
+  businessRegistered Boolean [not null]
+  incorpNumber String
+  websiteLink String [not null]
+  socialMediaLink String [not null]
+}
+
+Table VerificationToken {
+  code String [pk]
+  email String [not null]
+  createdAt DateTime [default: `now()`, not null]
+  expiresAt DateTime [not null]
+  type VerificationType
+}
+
+Table Request {
+  id String [pk]
+  pictures String[] [not null]
+  jobDescription String [not null]
+  budget Int [not null]
+  shoeSize Float [not null]
+  brand String [not null]
+  shoeName String [not null]
+  releaseYear Int [not null]
+  previouslyWorkedWith String [not null]
+  service ServiceType [not null]
+  subtypes String[] [not null]
+  requestStatus RequestStatus [not null, default: 'BOOKED']
+  dateCreated DateTime [default: `now()`, not null]
+  customerAddress Address [not null]
+  addressId String [unique, not null]
+  customerId String [not null]
+  customer User [not null]
+  technicianId String
+  technician User
+}
+
+Table Address {
+  id String [pk]
+  street String [not null]
+  city String [not null]
+  stateCode String [not null]
+  zipCode String [not null]
+  request Request
+}
+
+Table Review {
+  id String [pk]
+  rating Int [not null]
+  description String [not null]
+  createdAt DateTime [default: `now()`, not null]
+  reviewerId String [not null]
+  reviewer User [not null]
+  revieweeId String [not null]
+  reviewee User [not null]
+}
+
+Enum Role {
+  CUSTOMER
+  TECHNICIAN
+  ADMIN
+}
+
+Enum VerificationType {
+  EMAIL_VERIFICATION
+  PASSWORD_RESET
+}
+
+Enum ServiceType {
+  CLEANING
+  CUSTOM
+  RESTORATION
+}
+
+Enum CleaningSubtype {
+  LIGHT_CLEAN
+  DEEP_CLEAN
+  STAIN_REMOVAL
+  DEODORIZATION
+  DEOXIDIZE_NETTING
+  DEOXIDIZE_RUBBER_SOLES
+  DESIGNER_SHOE_CLEAN
+  ICE_CLEAR_SOLES
+  SUEDE_NUBUCK_CLEAN
+  UPPER_REPAINT
+  OTHER
+}
+
+Enum CustomSubtype {
+  DYE
+  NEO_VINTAGE
+  PAINT
+  OTHER
+}
+
+Enum RestorationSubtype {
+  BACK_TABS_SWAP
+  CLEAN_BEFORE_RESTORING
+  GLUE_TOUCH_UP
+  ICE_CLEAR_SOLES
+  MIDSOLE_REPAINT
+  PAINT_TOUCH_UP
+  REGLUE
+  REPLACE_NETTING
+  REPLACE_WINGS
+  SOLE_SWAPS_WITH_DONOR_SOLES
+  SOLE_SWAPS_WITHOUT_DONOR_SOLES
+  SUEDE_NUBUCK_REDYE
+  UPPER_REPAINT
+  OTHER
+}
+
+Enum RequestType {
+  STANDARD
+  RUSH
+  BULK
+}
+
+Enum RequestStatus {
+  BOOKED
+  IN_PROGRES
+  COMPLETE
+}
+
+Ref: TechnicianProfile.userId - User.id
+
+Ref: Request.addressId - Address.id
+
+Ref: Request.customerId > User.id
+
+Ref: Request.technicianId > User.id
+
+Ref: Review.reviewerId > User.id
+
+Ref: Review.revieweeId > User.id

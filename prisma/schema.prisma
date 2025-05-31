@@ -9,14 +9,18 @@ generator client {
   output   = "../generated/prisma"
 }
 
+generator dbml {
+  provider = "prisma-dbml-generator"
+}
+
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
 enum Role {
-  COLLECTOR
-  SERVICE_PROVIDER
+  CUSTOMER // COLLECTOR 
+  TECHNICIAN // SERVICE_PROVIDER
   ADMIN
 }
 
@@ -25,7 +29,6 @@ model User {
   firstName         String
   lastName          String
   phone             String
-  username          String   @unique
   email             String   @unique
   role              Role
   createdAt         DateTime @default(now())
@@ -38,7 +41,27 @@ model User {
   ratingsGiven    Review[] @relation("Reviewer")
   ratingsReceived Review[] @relation("Reviewee")
 
-  requests Request[]
+  // Only use one based on role, one to many
+  customerRequests   Request[] @relation("RequestCustomer")
+  technicianRequests Request[] @relation("RequestTechnician")
+
+  // For technicians
+  technicianProfile TechnicianProfile?
+}
+
+model TechnicianProfile {
+  userId String @id
+  user   User   @relation(fields: [userId], references: [id])
+
+  servicesProvided   ServiceType[]
+  businessName       String
+  businessRegistered Boolean
+  incorpNumber       String?
+  websiteLink        String
+  socialMediaLink    String
+
+  // validId
+  // Plan to store the ID pics in S3 bucket temporarily and immediately delete after verified
 }
 
 enum VerificationType {
@@ -105,8 +128,8 @@ enum RequestType {
 }
 
 enum RequestStatus {
-  BOOKED // Booked
-  IN_PROGRES //IN_PROGRESS
+  BOOKED
+  IN_PROGRESS
   COMPLETE
 }
 
@@ -127,14 +150,18 @@ model Request {
   subtypes String[]
 
   // Post submit
-  requestStatus RequestStatus @default(ACTIVE)
+  requestStatus RequestStatus @default(BOOKED)
+  dateCreated   DateTime      @default(now())
 
-  // Relations (user and address)
-  userId String
-  user   User   @relation(fields: [userId], references: [id])
+  // User relations
+  customerAddress Address @relation(fields: [addressId], references: [id])
+  addressId       String  @unique
 
-  ownerAddress Address @relation(fields: [addressId], references: [id])
-  addressId    String  @unique
+  customerId String
+  customer   User   @relation("RequestCustomer", fields: [customerId], references: [id])
+
+  technicianId String?
+  technician   User?   @relation("RequestTechnician", fields: [technicianId], references: [id])
 }
 
 model Address {
