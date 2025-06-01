@@ -154,8 +154,8 @@ model Request {
   dateCreated   DateTime      @default(now())
 
   // User relations
-  customerAddress Address @relation(fields: [addressId], references: [id])
   addressId       String  @unique
+  customerAddress Address @relation(fields: [addressId], references: [id])
 
   customerId String
   customer   User   @relation("RequestCustomer", fields: [customerId], references: [id])
@@ -171,7 +171,7 @@ model Address {
   stateCode String
   zipCode   String
 
-  request Request?
+  Request Request?
 }
 
 model Review {

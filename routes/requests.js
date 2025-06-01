@@ -49,12 +49,16 @@ router.post("/", verifyToken, upload.array("pictures"), async (req, res) => {
         previouslyWorkedWith,
         service,
         subtypes: parsedSubtypes,
-        userId: req.user.id,
-        addressId: address.id,
+        customerAddress: {
+          connect: { id: address.id }, // Use connect instead of direct assignment
+        },
+        customer: {
+          connect: { id: req.user.id },
+        },
       },
       include: {
-        user: true,
-        ownerAddress: true,
+        customer: true,
+        customerAddress: true,
       },
     });
 
@@ -96,13 +100,13 @@ router.get("/current", verifyToken, async (req, res) => {
   try {
     const requests = await prisma.Request.findMany({
       where: {
-        userId: userId,
+        customerId: userId,
         requestStatus: {
           in: ["BOOKED", "IN_PROGRESS"],
         },
       },
       include: {
-        ownerAddress: true,
+        customerAddress: true,
       },
       orderBy: {
         requestStatus: "desc",
@@ -121,11 +125,11 @@ router.get("/completed", verifyToken, async (req, res) => {
   try {
     const requests = await prisma.Request.findMany({
       where: {
-        userId: userId,
+        customerId: userId,
         requestStatus: "COMPLETE",
       },
       include: {
-        ownerAddress: true,
+        customerAddress: true,
       },
       orderBy: {
         // eventually by date created
