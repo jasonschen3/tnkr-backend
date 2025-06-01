@@ -19,6 +19,9 @@ Table User {
   customerRequests Request [not null]
   technicianRequests Request [not null]
   technicianProfile TechnicianProfile
+  TechnicianVerification TechnicianVerification
+  technicianOffers Offer [not null]
+  Portfolio PortfolioItem [not null]
 }
 
 Table TechnicianProfile {
@@ -29,7 +32,26 @@ Table TechnicianProfile {
   businessRegistered Boolean [not null]
   incorpNumber String
   websiteLink String [not null]
-  socialMediaLink String [not null]
+  socialMediaLink String[] [not null]
+  offers Offer [not null]
+  isTechnicianVerified Boolean [not null]
+  addressId String [not null]
+  technicianAddress Address [not null]
+}
+
+Table TechnicianVerification {
+  id String [pk]
+  technicianId String [unique, not null]
+  technician User [not null]
+  idFrontUrl String [not null]
+  idBackUrl String [not null]
+  selfieUrl String [not null]
+  status VerificationStatus [not null, default: 'PENDING']
+  verifiedAt DateTime
+  verifiedBy String
+  rejectionReason String
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
 }
 
 Table VerificationToken {
@@ -54,12 +76,38 @@ Table Request {
   subtypes String[] [not null]
   requestStatus RequestStatus [not null, default: 'BOOKED']
   dateCreated DateTime [default: `now()`, not null]
-  customerAddress Address [not null]
+  dateUpdated DateTime [not null]
+  shippingLabelUrl String
+  trackingNumber String
+  shippingStatus ShippingStatus [not null, default: 'PENDING_LABEL']
+  shippingCarrier String
   addressId String [unique, not null]
+  customerAddress Address [not null]
   customerId String [not null]
   customer User [not null]
+  offers Offer [not null]
   technicianId String
   technician User
+  Review Review [not null]
+  Portfolio PortfolioItem [not null]
+}
+
+Table Offer {
+  id String [pk]
+  amount Float [not null]
+  description String [not null]
+  status OfferStatus [not null, default: 'PENDING']
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+  attempts Int [not null, default: 1]
+  technicianId String [not null]
+  technician User [not null]
+  requestId String [not null]
+  request Request [not null]
+  shippingEstimate Float [not null]
+  estimatedTime Int [not null]
+  TechnicianProfile TechnicianProfile
+  technicianProfileUserId String
 }
 
 Table Address {
@@ -68,7 +116,8 @@ Table Address {
   city String [not null]
   stateCode String [not null]
   zipCode String [not null]
-  request Request
+  Request Request
+  TechnicianProfile TechnicianProfile [not null]
 }
 
 Table Review {
@@ -76,16 +125,38 @@ Table Review {
   rating Int [not null]
   description String [not null]
   createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
   reviewerId String [not null]
   reviewer User [not null]
   revieweeId String [not null]
   reviewee User [not null]
+  requestId String [not null]
+  request Request [not null]
+}
+
+Table PortfolioItem {
+  id String [pk]
+  title String [not null]
+  description String [not null]
+  images String[] [not null]
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+  technicianId String [not null]
+  technician User [not null]
+  requestId String
+  request Request
 }
 
 Enum Role {
   CUSTOMER
   TECHNICIAN
   ADMIN
+}
+
+Enum VerificationStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }
 
 Enum VerificationType {
@@ -149,7 +220,26 @@ Enum RequestStatus {
   COMPLETE
 }
 
+Enum OfferStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  EXPIRED
+}
+
+Enum ShippingStatus {
+  PENDING_LABEL
+  LABEL_GENERATED
+  IN_TRANSIT
+  DELIVERED
+  RETURNED
+}
+
 Ref: TechnicianProfile.userId - User.id
+
+Ref: TechnicianProfile.addressId > Address.id
+
+Ref: TechnicianVerification.technicianId - User.id
 
 Ref: Request.addressId - Address.id
 
@@ -157,6 +247,18 @@ Ref: Request.customerId > User.id
 
 Ref: Request.technicianId > User.id
 
+Ref: Offer.technicianId > User.id
+
+Ref: Offer.requestId > Request.id
+
+Ref: Offer.technicianProfileUserId > TechnicianProfile.userId
+
 Ref: Review.reviewerId > User.id
 
 Ref: Review.revieweeId > User.id
+
+Ref: Review.requestId > Request.id
+
+Ref: PortfolioItem.technicianId > User.id
+
+Ref: PortfolioItem.requestId > Request.id
