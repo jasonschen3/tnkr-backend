@@ -1,12 +1,14 @@
 import express from "express";
 import { prisma } from "../lib/prisma.js";
 import dotenv from "dotenv";
-
 import { verifyToken } from "./auth.js";
+import multer from "multer";
+import { uploadProfilePictureS3 } from "../utils/s3Upload.js";
 
 dotenv.config();
 
 const router = express.Router();
+const upload = multer({ storage: multer.memoryStorage() });
 
 router.get("/profile", verifyToken, async (req, res) => {
   const userId = req.user.id;
@@ -75,7 +77,7 @@ router.get("/profile", verifyToken, async (req, res) => {
 
 router.put("/profile", verifyToken, async (req, res) => {
   const userId = req.user.id;
-  const { firstName, lastName, phone, profilePictureUrl } = req.body;
+  const { firstName, lastName, phone } = req.body;
 
   try {
     await prisma.User.update({
@@ -84,16 +86,44 @@ router.put("/profile", verifyToken, async (req, res) => {
         firstName,
         lastName,
         phone,
-        profilePictureUrl,
       },
     });
 
-    console.log("done");
     return res.status(200).json();
   } catch (error) {
     console.error("Couldn't update user profile", error);
     return res.status(500).json({ error: "Internal server error" });
   }
 });
+
+router.put(
+  "/profile/picture",
+  verifyToken,
+  upload.single("profilePicture"),
+  async (req, res) => {
+    const userId = req.user.id;
+
+    try {
+      let profilePictureUrl = req.body.profilePictureUrl;
+
+      // If there's a new file upload, upload it to S3
+      if (req.file) {
+        profilePictureUrl = await uploadProfilePictureS3(req.file, userId);
+      }
+
+      await prisma.User.update({
+        where: { id: userId },
+        data: {
+          profilePictureUrl,
+        },
+      });
+
+      return res.status(200).json({ profilePictureUrl });
+    } catch (error) {
+      console.error("Couldn't update user profile", error);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  }
+);
 
 export default router;

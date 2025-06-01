@@ -188,8 +188,7 @@ router.get("/verify-email", async (req, res) => {
 
 router.post("/register", upload.single("photo"), async (req, res) => {
   try {
-    const { firstName, lastName, phone, username, email, role, password } =
-      req.body;
+    const { firstName, lastName, phone, email, role, password } = req.body;
 
     // Check email existence
     const emailExists = await checkEmailExists(email);
@@ -206,7 +205,7 @@ router.post("/register", upload.single("photo"), async (req, res) => {
         lastName,
         phone,
         email,
-        role: role || "COLLECTOR",
+        role: role || "CUSTOMER",
         password: hashedPassword,
         isVerified: false,
       },
@@ -311,7 +310,6 @@ router.post("/login", async (req, res) => {
       token,
       user: {
         id: user.id,
-        username: user.username,
         email: user.email,
         role: user.role,
       },
