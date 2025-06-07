@@ -93,6 +93,23 @@ router.post("/", verifyToken, upload.array("pictures"), async (req, res) => {
   }
 });
 
+// BOOKED for customer to see all their booked
+router.get("/booked", verifyToken, async (req, res) => {
+  const userId = req.user.id;
+
+  try {
+    const request = await prisma.Request.findMany({
+      where: {
+        customerId: userId,
+        requestStatus: "BOOKED",
+      },
+      include: {},
+    });
+  } catch (error) {
+    console.error("Error retrieving booked", error);
+  }
+});
+
 // BOOKED AND IN_PROGRESS
 router.get("/current", verifyToken, async (req, res) => {
   const userId = req.user.id; // from VerifyToken
@@ -132,6 +149,7 @@ router.get("/completed", verifyToken, async (req, res) => {
         customerAddress: true,
       },
       orderBy: {
+        dateCreated,
         // eventually by date created
       },
     });
@@ -140,5 +158,39 @@ router.get("/completed", verifyToken, async (req, res) => {
     console.error("Error fetching completed orders", error);
   }
 });
+
+/** Requests for technicians with cursor based pagination */
+router.get(
+  "/allRequests",
+  verifyToken,
+  verifyRole("TECHNICIAN"),
+  async (req, res) => {
+    const { limit, cursor } = req.query;
+
+    try {
+      const items = await prisma.Request.findMany({
+        where: {
+          requestStatus: "BOOKED",
+        },
+        take: limit,
+        skip: cursor ? 1 : 0,
+        cursor: cursor ? { id: cursor } : undefined,
+        orderBy: {
+          createdAt: "asc",
+        },
+      });
+
+      const nextCursor =
+        items.length > limit ? items[items.length - 1].id : null; // Last element's id if exists
+
+      return res.status(200).json({
+        data: items,
+        nextCursor: nextCursor,
+      });
+    } catch (error) {
+      console.error("Error getting requests");
+    }
+  }
+);
 
 export default router;

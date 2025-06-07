@@ -17,11 +17,8 @@ Table User {
   ratingsGiven Review [not null]
   ratingsReceived Review [not null]
   customerRequests Request [not null]
-  technicianRequests Request [not null]
   technicianProfile TechnicianProfile
   TechnicianVerification TechnicianVerification
-  technicianOffers Offer [not null]
-  Portfolio PortfolioItem [not null]
 }
 
 Table TechnicianProfile {
@@ -33,10 +30,12 @@ Table TechnicianProfile {
   incorpNumber String
   websiteLink String [not null]
   socialMediaLink String[] [not null]
+  bio String [not null]
+  isVerifiedTechnician Boolean [not null]
   offers Offer [not null]
-  isTechnicianVerified Boolean [not null]
-  addressId String [not null]
-  technicianAddress Address [not null]
+  requestsTaken Request [not null]
+  portfolio PortfolioItem [not null]
+  technicianAddress TechnicianAddress
 }
 
 Table TechnicianVerification {
@@ -81,15 +80,13 @@ Table Request {
   trackingNumber String
   shippingStatus ShippingStatus [not null, default: 'PENDING_LABEL']
   shippingCarrier String
-  addressId String [unique, not null]
-  customerAddress Address [not null]
+  shippingAddress RequestAddress
   customerId String [not null]
   customer User [not null]
   offers Offer [not null]
   technicianId String
-  technician User
-  Review Review [not null]
-  Portfolio PortfolioItem [not null]
+  technician TechnicianProfile
+  review Review
 }
 
 Table Offer {
@@ -101,23 +98,31 @@ Table Offer {
   updatedAt DateTime [not null]
   attempts Int [not null, default: 1]
   technicianId String [not null]
-  technician User [not null]
+  technician TechnicianProfile [not null]
   requestId String [not null]
   request Request [not null]
   shippingEstimate Float [not null]
   estimatedTime Int [not null]
-  TechnicianProfile TechnicianProfile
-  technicianProfileUserId String
 }
 
-Table Address {
+Table RequestAddress {
   id String [pk]
   street String [not null]
   city String [not null]
   stateCode String [not null]
   zipCode String [not null]
-  Request Request
-  TechnicianProfile TechnicianProfile [not null]
+  requestAddressId String [unique, not null]
+  request Request [not null]
+}
+
+Table TechnicianAddress {
+  id String [pk]
+  street String [not null]
+  city String [not null]
+  stateCode String [not null]
+  zipCode String [not null]
+  technicianProfileId String [unique, not null]
+  technicianProfile TechnicianProfile [not null]
 }
 
 Table Review {
@@ -130,7 +135,7 @@ Table Review {
   reviewer User [not null]
   revieweeId String [not null]
   reviewee User [not null]
-  requestId String [not null]
+  requestId String [unique, not null]
   request Request [not null]
 }
 
@@ -142,9 +147,7 @@ Table PortfolioItem {
   createdAt DateTime [default: `now()`, not null]
   updatedAt DateTime [not null]
   technicianId String [not null]
-  technician User [not null]
-  requestId String
-  request Request
+  technician TechnicianProfile [not null]
 }
 
 Enum Role {
@@ -237,28 +240,24 @@ Enum ShippingStatus {
 
 Ref: TechnicianProfile.userId - User.id
 
-Ref: TechnicianProfile.addressId > Address.id
-
 Ref: TechnicianVerification.technicianId - User.id
-
-Ref: Request.addressId - Address.id
 
 Ref: Request.customerId > User.id
 
-Ref: Request.technicianId > User.id
+Ref: Request.technicianId > TechnicianProfile.userId
 
-Ref: Offer.technicianId > User.id
+Ref: Offer.technicianId > TechnicianProfile.userId
 
 Ref: Offer.requestId > Request.id
 
-Ref: Offer.technicianProfileUserId > TechnicianProfile.userId
+Ref: RequestAddress.requestAddressId - Request.id
+
+Ref: TechnicianAddress.technicianProfileId - TechnicianProfile.userId
 
 Ref: Review.reviewerId > User.id
 
 Ref: Review.revieweeId > User.id
 
-Ref: Review.requestId > Request.id
+Ref: Review.requestId - Request.id
 
-Ref: PortfolioItem.technicianId > User.id
-
-Ref: PortfolioItem.requestId > Request.id
+Ref: PortfolioItem.technicianId > TechnicianProfile.userId

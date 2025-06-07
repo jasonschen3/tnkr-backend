@@ -199,8 +199,8 @@ model Request {
 
   // Status tracking
   requestStatus RequestStatus @default(BOOKED)
-  dateCreated   DateTime      @default(now())
-  dateUpdated   DateTime      @updatedAt
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
 
   // Shipping details
   shippingLabelUrl String?

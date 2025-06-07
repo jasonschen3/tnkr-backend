@@ -95,10 +95,10 @@ export function verifyToken(req, res, next) {
   });
 }
 
-function checkAdmin() {
+export function verifyRole(requiredRole) {
   return (req, res, next) => {
-    const isAdmin = req.user.role === "ADMIN";
-    if (isAdmin) {
+    const currRole = req.user.role;
+    if (currRole === requiredRole) {
       next();
     } else {
       res
