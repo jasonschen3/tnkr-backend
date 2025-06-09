@@ -1,97 +1,93 @@
 import express from "express";
 import { prisma } from "../lib/prisma.js";
-import { verifyToken } from "./auth.js";
+import { verifyToken, verifyRole } from "./auth.js";
 import multer from "multer";
 import { uploadRequestPhotosS3 } from "../utils/s3Upload.js";
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
 
-router.post("/", verifyToken, upload.array("pictures"), async (req, res) => {
-  try {
-    const {
-      jobDescription,
-      budget,
-      shoeSize,
-      brand,
-      shoeName,
-      releaseYear,
-      previouslyWorkedWith,
-      service,
-      subtypes,
-      street,
-      city,
-      stateCode,
-      zipCode,
-    } = req.body;
-
-    // Create address first
-    const address = await prisma.Address.create({
-      data: {
+router.post(
+  "/",
+  verifyToken,
+  verifyRole("CUSTOMER"),
+  upload.array("pictures"),
+  async (req, res) => {
+    try {
+      const {
+        jobDescription,
+        budget,
+        shoeSize,
+        brand,
+        shoeName,
+        releaseYear,
+        previouslyWorkedWith,
+        service,
+        subtypes,
         street,
         city,
         stateCode,
         zipCode,
-      },
-    });
+      } = req.body;
 
-    const parsedSubtypes = JSON.parse(subtypes);
+      const parsedSubtypes = JSON.parse(subtypes);
 
-    // Create request with address and user relation
-    const request = await prisma.Request.create({
-      data: {
-        jobDescription,
-        budget: parseInt(budget),
-        shoeSize: parseFloat(shoeSize),
-        brand,
-        shoeName,
-        releaseYear: parseInt(releaseYear),
-        previouslyWorkedWith,
-        service,
-        subtypes: parsedSubtypes,
-        customerAddress: {
-          connect: { id: address.id }, // Use connect instead of direct assignment
+      // Create request with address and user relation
+      const request = await prisma.Request.create({
+        data: {
+          jobDescription,
+          budget: parseInt(budget),
+          shoeSize: parseFloat(shoeSize),
+          brand,
+          shoeName,
+          releaseYear: parseInt(releaseYear),
+          previouslyWorkedWith,
+          service,
+          subtypes: parsedSubtypes,
+          street,
+          city,
+          stateCode,
+          zipCode,
+          customer: {
+            connect: { id: req.user.id },
+          },
         },
-        customer: {
-          connect: { id: req.user.id },
+        include: {
+          customer: true,
         },
-      },
-      include: {
-        customer: true,
-        customerAddress: true,
-      },
-    });
+      });
 
-    // Handle picture uploads to S3
-    const pictureUrls = await Promise.all(
-      req.files.map((file) =>
-        uploadRequestPhotosS3(file, req.user.id, request.id)
-      )
-    );
+      // Handle picture uploads to S3
+      const pictureUrls = await Promise.all(
+        req.files.map((file) =>
+          uploadRequestPhotosS3(file, req.user.id, request.id)
+        )
+      );
 
-    // Update request with picture URLs
-    await prisma.Request.update({
-      where: { id: request.id },
-      data: {
-        pictures: pictureUrls,
-      },
-    });
+      // Update request with picture URLs
+      await prisma.Request.update({
+        where: { id: request.id },
+        data: {
+          pictures: pictureUrls,
+        },
+      });
 
-    return res.status(201).json({
-      message: "Request created successfully",
-      request: {
-        ...request,
-        pictures: pictureUrls,
-      },
-    });
-  } catch (error) {
-    console.error("Error creating request:", error);
-    return res.status(400).json({
-      error: "Failed to create request",
-      details: error.message,
-    });
+      return res.status(201).json({
+        message: "Request created successfully",
+        request: {
+          ...request,
+          pictures: pictureUrls,
+        },
+      });
+    } catch (error) {
+      console.error("Error creating request:", error);
+      return res.status(400).json({
+        error: "Failed to create request",
+        details: error.message,
+      });
+    }
   }
-});
+);
 
 // BOOKED for customer to see all their booked
 router.get("/booked", verifyToken, async (req, res) => {
@@ -122,9 +118,6 @@ router.get("/current", verifyToken, async (req, res) => {
           in: ["BOOKED", "IN_PROGRESS"],
         },
       },
-      include: {
-        customerAddress: true,
-      },
       orderBy: {
         requestStatus: "desc",
       },
@@ -145,12 +138,8 @@ router.get("/completed", verifyToken, async (req, res) => {
         customerId: userId,
         requestStatus: "COMPLETE",
       },
-      include: {
-        customerAddress: true,
-      },
       orderBy: {
-        dateCreated,
-        // eventually by date created
+        createdAt: "desc",
       },
     });
     return res.status(200).json(requests);
@@ -161,18 +150,19 @@ router.get("/completed", verifyToken, async (req, res) => {
 
 /** Requests for technicians with cursor based pagination */
 router.get(
-  "/allRequests",
+  "/technicianRequests",
   verifyToken,
   verifyRole("TECHNICIAN"),
   async (req, res) => {
     const { limit, cursor } = req.query;
+    const parsedLimited = parseInt(limit);
 
     try {
       const items = await prisma.Request.findMany({
         where: {
           requestStatus: "BOOKED",
         },
-        take: limit,
+        take: parsedLimited,
         skip: cursor ? 1 : 0,
         cursor: cursor ? { id: cursor } : undefined,
         orderBy: {
@@ -180,15 +170,16 @@ router.get(
         },
       });
 
-      const nextCursor =
-        items.length > limit ? items[items.length - 1].id : null; // Last element's id if exists
+      console.log(items);
+      const nextCursor = items[items.length - 1].id; // Last element's id
 
+      console.log("NEXT", nextCursor);
       return res.status(200).json({
         data: items,
         nextCursor: nextCursor,
       });
     } catch (error) {
-      console.error("Error getting requests");
+      console.error("Error getting requests", error);
     }
   }
 );

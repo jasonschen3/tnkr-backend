@@ -202,15 +202,19 @@ model Request {
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 
+  // Customer Address
+  street    String
+  city      String
+  stateCode String
+  zipCode   String
+
   // Shipping details
   shippingLabelUrl String?
   trackingNumber   String?
   shippingStatus   ShippingStatus @default(PENDING_LABEL)
   shippingCarrier  String?
 
-  // User relations
-  shippingAddress RequestAddress?
-
+  // Relations
   customerId String
   customer   User   @relation("RequestCustomer", fields: [customerId], references: [id])
 
@@ -245,17 +249,6 @@ model Offer {
   // Shipping estimate
   shippingEstimate Float
   estimatedTime    Int // Days
-}
-
-model RequestAddress {
-  id        String @id @default(uuid())
-  street    String
-  city      String
-  stateCode String
-  zipCode   String
-
-  requestAddressId String  @unique
-  request          Request @relation(fields: [requestAddressId], references: [id])
 }
 
 model TechnicianAddress {
