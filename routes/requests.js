@@ -58,11 +58,11 @@ router.post(
       });
 
       // Handle picture uploads to S3
-      // const pictureUrls = await Promise.all(
-      //   req.files.map((file) =>
-      //     uploadRequestPhotosS3(file, req.user.id, request.id)
-      //   )
-      // );
+      const pictureUrls = await Promise.all(
+        req.files.map((file) =>
+          uploadRequestPhotosS3(file, req.user.id, request.id)
+        )
+      );
 
       // Update request with picture URLs
       await prisma.Request.update({
@@ -187,5 +187,41 @@ router.get(
     }
   }
 );
+
+router.get("/:id", verifyToken, async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const request = await prisma.Request.findUnique({
+      where: {
+        id: id,
+      },
+      include: {
+        customer: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+      },
+    });
+
+    if (!request) {
+      return res.status(404).json({
+        error: "Request not found",
+      });
+    }
+
+    return res.status(200).json(request);
+  } catch (error) {
+    console.error("Error fetching request:", error);
+    return res.status(500).json({
+      error: "Failed to fetch request",
+      details: error.message,
+    });
+  }
+});
 
 export default router;
