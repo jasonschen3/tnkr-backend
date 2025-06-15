@@ -58,11 +58,11 @@ router.post(
       });
 
       // Handle picture uploads to S3
-      const pictureUrls = await Promise.all(
-        req.files.map((file) =>
-          uploadRequestPhotosS3(file, req.user.id, request.id)
-        )
-      );
+      // const pictureUrls = await Promise.all(
+      //   req.files.map((file) =>
+      //     uploadRequestPhotosS3(file, req.user.id, request.id)
+      //   )
+      // );
 
       // Update request with picture URLs
       await prisma.Request.update({
@@ -170,10 +170,14 @@ router.get(
         },
       });
 
-      console.log(items);
+      if (items.length === 0) {
+        res.status(200).json({
+          data: [],
+        });
+      }
+
       const nextCursor = items[items.length - 1].id; // Last element's id
 
-      console.log("NEXT", nextCursor);
       return res.status(200).json({
         data: items,
         nextCursor: nextCursor,
