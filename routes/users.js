@@ -4,6 +4,13 @@ import dotenv from "dotenv";
 import { verifyToken } from "./auth.js";
 import multer from "multer";
 import { uploadProfilePictureS3 } from "../utils/s3Upload.js";
+import {
+  getCache,
+  setCache,
+  getCacheKey,
+  invalidateCache,
+  ONE_HOUR_TTL,
+} from "../utils/cache.js";
 
 dotenv.config();
 
@@ -12,8 +19,19 @@ const upload = multer({ storage: multer.memoryStorage() });
 
 router.get("/profile", verifyToken, async (req, res) => {
   const userId = req.user.id;
+  const redisClient = req.app.locals.redisClient;
+  const cacheProfileKey = getCacheKey(userId, "profile");
 
   try {
+    const cachedEnhancedUserData = await getCache(redisClient, cacheProfileKey);
+
+    // Hit
+    if (cachedEnhancedUserData) {
+      console.log("hit");
+      return res.status(200).json(cachedEnhancedUserData);
+    }
+    console.log("miss");
+
     const userData = await prisma.User.findUnique({
       where: {
         id: userId,
@@ -68,6 +86,13 @@ router.get("/profile", verifyToken, async (req, res) => {
       totalRatings: userData.ratingsReceived.length,
     };
 
+    await setCache(
+      redisClient,
+      cacheProfileKey,
+      enhancedUserData,
+      ONE_HOUR_TTL
+    );
+
     return res.status(200).json(enhancedUserData);
   } catch (error) {
     console.error("Couldn't fetch userdata", error);
@@ -79,6 +104,9 @@ router.put("/profile", verifyToken, async (req, res) => {
   const userId = req.user.id;
   const { firstName, lastName, phone } = req.body;
 
+  const redisClient = req.app.locals.redisClient;
+  const cacheProfileKey = getCacheKey(userId, "profile");
+
   try {
     await prisma.User.update({
       where: { id: userId },
@@ -88,6 +116,8 @@ router.put("/profile", verifyToken, async (req, res) => {
         phone,
       },
     });
+
+    await invalidateCache(redisClient, cacheProfileKey);
 
     return res.status(200).json();
   } catch (error) {
@@ -102,6 +132,8 @@ router.put(
   upload.single("profilePicture"),
   async (req, res) => {
     const userId = req.user.id;
+    const redisClient = req.app.locals.redisClient;
+    const cacheProfileKey = getCacheKey(userId, "profile");
 
     try {
       let profilePictureUrl = req.body.profilePictureUrl;
@@ -117,6 +149,9 @@ router.put(
           profilePictureUrl,
         },
       });
+
+      await invalidateCache(redisClient, cacheProfileKey);
+      console.log("invalidated cache");
 
       return res.status(200).json({ profilePictureUrl });
     } catch (error) {

@@ -5,6 +5,7 @@ import env from "dotenv";
 
 import Stripe from "stripe";
 import { prisma } from "./lib/prisma.js";
+import { createClient } from "redis";
 
 import authRoutes from "./routes/auth.js";
 import userRoutes from "./routes/users.js";
@@ -21,6 +22,16 @@ app.use("/users", userRoutes);
 app.use("/requests", requestsRoutes);
 
 // const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+
+const redisClient = createClient();
+// createClient({
+//   url: 'redis://alice:foobared@awesome.redis.server:6380'
+// });
+redisClient.on("error", (err) => console.log("Redis Client Error", err));
+
+await redisClient.connect();
+
+app.locals.redisClient = redisClient;
 
 app.get("/", (req, res) => {
   res.send("Hello World");
