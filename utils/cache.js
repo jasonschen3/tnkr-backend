@@ -1,21 +1,22 @@
-export const ONE_HOUR_TTL = 60 * 10;
+export const ONE_HOUR_TTL = 60 * 60;
+export const TEN_MINUTE_TLL = 60 * 10;
 
-export async function getOrSetCache(redisClient, key, fetchFn, ttl) {
-  try {
-    const cached = await redisClient.get(key);
-    console.log("Cached", cached);
-    if (cached) {
-      return JSON.parse(cached);
-    }
+// export async function getOrSetCache(redisClient, key, fetchFn, ttl) {
+//   try {
+//     const cached = await redisClient.get(key);
+//     console.log("Cached", cached);
+//     if (cached) {
+//       return JSON.parse(cached);
+//     }
 
-    const data = await fetchFn();
-    await redisClient.set(key, JSON.stringify(data), { EX: ttl });
-    return data;
-  } catch (error) {
-    console.error("Cache operation failed:", error);
-    return await fetchFn();
-  }
-}
+//     const data = await fetchFn();
+//     await redisClient.set(key, JSON.stringify(data), { EX: ttl });
+//     return data;
+//   } catch (error) {
+//     console.error("Cache operation failed:", error);
+//     return await fetchFn();
+//   }
+// }
 
 export async function getCache(redisClient, key) {
   try {

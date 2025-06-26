@@ -3,10 +3,18 @@ import { prisma } from "../lib/prisma.js";
 import { verifyToken, verifyRole } from "./auth.js";
 import multer from "multer";
 import { uploadRequestPhotosS3 } from "../utils/s3Upload.js";
+import {
+  getCacheKey,
+  getCache,
+  setCache,
+  invalidateCache,
+  TEN_MINUTE_TLL,
+} from "../utils/cache.js";
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
 
+// Customer adds requests
 router.post(
   "/",
   verifyToken,
@@ -72,6 +80,8 @@ router.post(
         },
       });
 
+      invalidateCache();
+
       return res.status(201).json({
         message: "Request created successfully",
         request: {
@@ -90,27 +100,46 @@ router.post(
 );
 
 // BOOKED for customer to see all their booked
-router.get("/booked", verifyToken, async (req, res) => {
-  const userId = req.user.id;
+/// NOT USED
+// router.get("/booked", verifyToken, async (req, res) => {
+//   const userId = req.user.id;
+//   const redisClient = req.app.locals.redisClient;
+//   const cacheRequestKey = getCacheKey(userId, "request");
 
-  try {
-    const request = await prisma.Request.findMany({
-      where: {
-        customerId: userId,
-        requestStatus: "BOOKED",
-      },
-      include: {},
-    });
-  } catch (error) {
-    console.error("Error retrieving booked", error);
-  }
-});
+//   try {
+//     const cachedRequest = await getCache(redisClient, cacheRequestKey);
+
+//     if (cachedRequest) {
+
+//     }
+
+//     const request = await prisma.Request.findMany({
+//       where: {
+//         customerId: userId,
+//         requestStatus: "BOOKED",
+//       },
+//       include: {},
+//     });
+//   } catch (error) {
+//     console.error("Error retrieving booked", error);
+//   }
+// });
 
 // BOOKED AND IN_PROGRESS
 router.get("/current", verifyToken, async (req, res) => {
   const userId = req.user.id; // from VerifyToken
+  const redisClient = req.app.locals.redisClient;
+  const cacheCurrentRequestKey = getCacheKey(userId, "current-requests");
 
   try {
+    const cachedRequest = await getCache(redisClient, cacheCurrentRequestKey);
+
+    if (cachedRequest) {
+      console.log("hit");
+      return res.status(200).json(cachedRequest);
+    }
+    console.log("miss");
+
     const requests = await prisma.Request.findMany({
       where: {
         customerId: userId,
@@ -123,6 +152,13 @@ router.get("/current", verifyToken, async (req, res) => {
       },
     });
 
+    await setCache(
+      redisClient,
+      cacheCurrentRequestKey,
+      requests,
+      TEN_MINUTE_TLL
+    );
+
     return res.status(200).json(requests);
   } catch (error) {
     console.error("Error fetching current requests", error);
@@ -131,8 +167,18 @@ router.get("/current", verifyToken, async (req, res) => {
 
 router.get("/completed", verifyToken, async (req, res) => {
   const userId = req.user.id;
+  const redisClient = req.app.locals.redisClient;
+  const cacheCompletedRequestKey = getCacheKey(userId, "completed-requests");
 
   try {
+    const cachedRequest = await getCache(redisClient, cacheCompletedRequestKey);
+
+    if (cachedRequest) {
+      console.log("hit");
+      return res.status(200).json(cachedRequest);
+    }
+    console.log("miss");
+
     const requests = await prisma.Request.findMany({
       where: {
         customerId: userId,
@@ -142,13 +188,21 @@ router.get("/completed", verifyToken, async (req, res) => {
         createdAt: "desc",
       },
     });
+
+    await setCache(
+      redisClient,
+      cacheCompletedRequestKey,
+      requests,
+      TEN_MINUTE_TLL
+    );
+
     return res.status(200).json(requests);
   } catch (error) {
     console.error("Error fetching completed orders", error);
   }
 });
 
-/** Requests for technicians with cursor based pagination */
+/** -------- Requests for technicians with cursor based pagination -------- */
 router.get(
   "/technicianRequests",
   verifyToken,
