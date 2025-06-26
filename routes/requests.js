@@ -21,6 +21,9 @@ router.post(
   verifyRole("CUSTOMER"),
   upload.array("pictures"),
   async (req, res) => {
+    const userId = req.user.id;
+    const redisClient = req.app.locals.redisClient;
+    const cacheCurrentRequestKey = getCacheKey(userId, "current-requests");
     try {
       const {
         jobDescription,
@@ -80,7 +83,7 @@ router.post(
         },
       });
 
-      invalidateCache();
+      invalidateCache(redisClient, cacheCurrentRequestKey);
 
       return res.status(201).json({
         message: "Request created successfully",
