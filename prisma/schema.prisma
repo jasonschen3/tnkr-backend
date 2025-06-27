@@ -47,6 +47,9 @@ model User {
   // For technicians
   technicianProfile      TechnicianProfile?
   TechnicianVerification TechnicianVerification?
+
+  sentMessages     Message[] @relation("SentMessages")
+  receivedMessages Message[] @relation("ReceivedMessages")
 }
 
 model TechnicianProfile {
@@ -292,4 +295,15 @@ model PortfolioItem {
   // Link to the technician
   technicianId String
   technician   TechnicianProfile @relation(fields: [technicianId], references: [userId])
+}
+
+model Message {
+  id         String   @id @default(uuid())
+  senderId   String
+  receiverId String
+  content    String
+  createdAt  DateTime @default(now())
+
+  sender   User @relation("SentMessages", fields: [senderId], references: [id])
+  receiver User @relation("ReceivedMessages", fields: [receiverId], references: [id])
 }
