@@ -66,6 +66,7 @@ function generateToken(user) {
     id: user.id,
     role: user.role,
     email: user.email,
+    firstName: user.firstName,
   };
 
   const options = { expiresIn: "24h" };
@@ -273,6 +274,7 @@ router.post("/login", async (req, res) => {
       select: {
         id: true,
         email: true,
+        firstName: true,
         password: true,
         role: true,
         isVerified: true,
@@ -312,6 +314,7 @@ router.post("/login", async (req, res) => {
         id: user.id,
         email: user.email,
         role: user.role,
+        firstName: user.firstName,
       },
     });
   } catch (err) {

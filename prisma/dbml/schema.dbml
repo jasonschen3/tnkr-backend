@@ -19,6 +19,8 @@ Table User {
   customerRequests Request [not null]
   technicianProfile TechnicianProfile
   TechnicianVerification TechnicianVerification
+  sentMessages Message [not null]
+  receivedMessages Message [not null]
 }
 
 Table TechnicianProfile {
@@ -143,6 +145,16 @@ Table PortfolioItem {
   technician TechnicianProfile [not null]
 }
 
+Table Message {
+  id String [pk]
+  senderId String [not null]
+  receiverId String [not null]
+  content String [not null]
+  createdAt DateTime [default: `now()`, not null]
+  sender User [not null]
+  receiver User [not null]
+}
+
 Enum Role {
   CUSTOMER
   TECHNICIAN
@@ -252,3 +264,7 @@ Ref: Review.revieweeId > User.id
 Ref: Review.requestId - Request.id
 
 Ref: PortfolioItem.technicianId > TechnicianProfile.userId
+
+Ref: Message.senderId > User.id
+
+Ref: Message.receiverId > User.id

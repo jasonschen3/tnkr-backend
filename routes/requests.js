@@ -219,6 +219,16 @@ router.get(
         where: {
           requestStatus: "BOOKED",
         },
+        include: {
+          customer: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+            },
+          },
+        },
         take: parsedLimited,
         skip: cursor ? 1 : 0,
         cursor: cursor ? { id: cursor } : undefined,
