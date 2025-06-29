@@ -40,7 +40,6 @@ router.get("/profile", verifyToken, async (req, res) => {
         firstName: true,
         lastName: true,
         email: true,
-        phone: true,
         profilePictureUrl: true,
         role: true,
         ratingsReceived: {
@@ -96,32 +95,6 @@ router.get("/profile", verifyToken, async (req, res) => {
     return res.status(200).json(enhancedUserData);
   } catch (error) {
     console.error("Couldn't fetch userdata", error);
-    return res.status(500).json({ error: "Internal server error" });
-  }
-});
-
-router.put("/profile", verifyToken, async (req, res) => {
-  const userId = req.user.id;
-  const { firstName, lastName, phone } = req.body;
-
-  const redisClient = req.app.locals.redisClient;
-  const cacheProfileKey = getCacheKey(userId, "profile");
-
-  try {
-    await prisma.User.update({
-      where: { id: userId },
-      data: {
-        firstName,
-        lastName,
-        phone,
-      },
-    });
-
-    await invalidateCache(redisClient, cacheProfileKey);
-
-    return res.status(200).json();
-  } catch (error) {
-    console.error("Couldn't update user profile", error);
     return res.status(500).json({ error: "Internal server error" });
   }
 });
