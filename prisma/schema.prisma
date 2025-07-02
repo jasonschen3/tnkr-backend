@@ -222,7 +222,8 @@ model Request {
   customer   User   @relation("RequestCustomer", fields: [customerId], references: [id])
 
   // Offers
-  offers Offer[] @relation("RequestOffers")
+  offers   Offer[]   @relation("RequestOffers")
+  messages Message[] @relation("RequestMessages")
 
   // Selected technician
   technicianId String?
@@ -303,6 +304,9 @@ model Message {
   receiverId String
   content    String
   createdAt  DateTime @default(now())
+
+  requestId String
+  request   Request @relation("RequestMessages", fields: [requestId], references: [id])
 
   sender   User @relation("SentMessages", fields: [senderId], references: [id])
   receiver User @relation("ReceivedMessages", fields: [receiverId], references: [id])
