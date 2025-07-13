@@ -1,9 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
   output   = "../generated/prisma"
@@ -18,80 +12,163 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model User {
+  id                     String                  @id @default(uuid())
+  firstName              String
+  lastName               String
+  phone                  String
+  email                  String                  @unique
+  role                   Role
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @updatedAt
+  password               String
+  isVerified             Boolean                 @default(false)
+  profilePictureUrl      String?
+  receivedMessages       Message[]               @relation("ReceivedMessages")
+  sentMessages           Message[]               @relation("SentMessages")
+  customerRequests       Request[]               @relation("RequestCustomer")
+  ratingsReceived        Review[]                @relation("Reviewee")
+  ratingsGiven           Review[]                @relation("Reviewer")
+  technicianProfile      TechnicianProfile?
+  TechnicianVerification TechnicianVerification?
+}
+
+model TechnicianProfile {
+  userId               String             @id
+  servicesProvided     ServiceType[]
+  businessName         String
+  businessRegistered   Boolean
+  incorpNumber         String?
+  websiteLink          String
+  socialMediaLink      String[]
+  bio                  String             @db.VarChar(1024)
+  isVerifiedTechnician Boolean
+  offers               Offer[]            @relation("OffersSent")
+  portfolio            PortfolioItem[]
+  requestsTaken        Request[]          @relation("RequestsTaken")
+  technicianAddress    TechnicianAddress?
+  user                 User               @relation(fields: [userId], references: [id])
+}
+
+model TechnicianVerification {
+  id              String             @id @default(uuid())
+  technicianId    String             @unique
+  idFrontUrl      String
+  idBackUrl       String
+  selfieUrl       String
+  status          VerificationStatus @default(PENDING)
+  verifiedAt      DateTime?
+  verifiedBy      String?
+  rejectionReason String?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  technician      User               @relation(fields: [technicianId], references: [id])
+}
+
+model VerificationToken {
+  code      String            @id @default(uuid())
+  email     String
+  createdAt DateTime          @default(now())
+  expiresAt DateTime
+  type      VerificationType?
+}
+
+model Request {
+  id                   String             @id @default(uuid())
+  pictures             String[]
+  jobDescription       String
+  budget               Int
+  shoeSize             Float
+  brand                String
+  shoeName             String
+  releaseYear          Int
+  previouslyWorkedWith String
+  service              ServiceType
+  subtypes             String[]
+  requestStatus        RequestStatus      @default(BOOKED)
+  shippingLabelUrl     String?
+  trackingNumber       String?
+  shippingStatus       ShippingStatus     @default(PENDING_LABEL)
+  shippingCarrier      String?
+  customerId           String
+  technicianId         String?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+  city                 String
+  stateCode            String
+  street               String
+  zipCode              String
+  offers               Offer[]            @relation("RequestOffers")
+  customer             User               @relation("RequestCustomer", fields: [customerId], references: [id])
+  technician           TechnicianProfile? @relation("RequestsTaken", fields: [technicianId], references: [userId])
+  review               Review?
+}
+
+model Offer {
+  id               String            @id @default(uuid())
+  amount           Float
+  description      String
+  status           OfferStatus       @default(PENDING)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  attempts         Int               @default(1)
+  technicianId     String
+  requestId        String
+  shippingEstimate Float
+  estimatedTime    Int
+  request          Request           @relation("RequestOffers", fields: [requestId], references: [id])
+  technician       TechnicianProfile @relation("OffersSent", fields: [technicianId], references: [userId])
+}
+
+model TechnicianAddress {
+  id                  String            @id @default(uuid())
+  street              String
+  city                String
+  stateCode           String
+  zipCode             String
+  technicianProfileId String            @unique
+  technicianProfile   TechnicianProfile @relation(fields: [technicianProfileId], references: [userId])
+}
+
+model Review {
+  id          String   @id @default(uuid())
+  rating      Int
+  description String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  reviewerId  String
+  revieweeId  String
+  requestId   String   @unique
+  request     Request  @relation(fields: [requestId], references: [id])
+  reviewee    User     @relation("Reviewee", fields: [revieweeId], references: [id])
+  reviewer    User     @relation("Reviewer", fields: [reviewerId], references: [id])
+}
+
+model PortfolioItem {
+  id           String            @id @default(uuid())
+  title        String
+  description  String
+  images       String[]
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  technicianId String
+  technician   TechnicianProfile @relation(fields: [technicianId], references: [userId])
+}
+
+model Message {
+  id         String   @id @default(uuid())
+  senderId   String
+  receiverId String
+  content    String
+  createdAt  DateTime @default(now())
+  receiver   User     @relation("ReceivedMessages", fields: [receiverId], references: [id])
+  sender     User     @relation("SentMessages", fields: [senderId], references: [id])
+}
+
 enum Role {
   CUSTOMER
   TECHNICIAN
   ADMIN
-}
-
-model User {
-  id                String   @id @default(uuid())
-  firstName         String
-  lastName          String
-  phone             String
-  email             String   @unique
-  role              Role
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  password          String
-  isVerified        Boolean  @default(false)
-  profilePictureUrl String? // S3 URL to the stored photo
-
-  // Ratings
-  ratingsGiven    Review[] @relation("Reviewer")
-  ratingsReceived Review[] @relation("Reviewee")
-
-  // For customers, all their requests
-  customerRequests Request[] @relation("RequestCustomer")
-
-  // For technicians
-  technicianProfile      TechnicianProfile?
-  TechnicianVerification TechnicianVerification?
-
-  sentMessages     Message[] @relation("SentMessages")
-  receivedMessages Message[] @relation("ReceivedMessages")
-}
-
-model TechnicianProfile {
-  userId String @id
-  user   User   @relation(fields: [userId], references: [id])
-
-  servicesProvided   ServiceType[]
-  businessName       String
-  businessRegistered Boolean
-  incorpNumber       String?
-  websiteLink        String
-  socialMediaLink    String[]
-  bio                String        @db.VarChar(1024)
-
-  // Plan to store the Verify ID pics in S3 bucket temporarily and immediately delete after verified
-  isVerifiedTechnician Boolean
-
-  // Relations
-  offers        Offer[]   @relation("OffersSent")
-  requestsTaken Request[] @relation("RequestsTaken")
-
-  portfolio         PortfolioItem[]
-  technicianAddress TechnicianAddress?
-}
-
-model TechnicianVerification {
-  id           String @id @default(uuid())
-  technicianId String @unique
-  technician   User   @relation(fields: [technicianId], references: [id])
-
-  // ID Photos
-  idFrontUrl String // Front of ID
-  idBackUrl  String // Back of ID
-  selfieUrl  String // Selfie with ID
-
-  status          VerificationStatus @default(PENDING)
-  verifiedAt      DateTime?
-  verifiedBy      String? // Admin ID who verified
-  rejectionReason String?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
 }
 
 enum VerificationStatus {
@@ -103,14 +180,6 @@ enum VerificationStatus {
 enum VerificationType {
   EMAIL_VERIFICATION
   PASSWORD_RESET
-}
-
-model VerificationToken {
-  code      String            @id @default(uuid())
-  email     String
-  createdAt DateTime          @default(now())
-  expiresAt DateTime // 1hr
-  type      VerificationType?
 }
 
 enum ServiceType {
@@ -157,7 +226,6 @@ enum RestorationSubtype {
   OTHER
 }
 
-// TODO IMPLEMENT
 enum RequestType {
   STANDARD
   RUSH
@@ -183,131 +251,4 @@ enum ShippingStatus {
   IN_TRANSIT
   DELIVERED
   RETURNED
-}
-
-model Request {
-  id                   String   @id @default(uuid())
-  pictures             String[]
-  jobDescription       String
-  budget               Int
-  shoeSize             Float
-  brand                String
-  shoeName             String
-  releaseYear          Int
-  previouslyWorkedWith String
-
-  // Service details
-  service  ServiceType
-  subtypes String[]
-
-  // Status tracking
-  requestStatus RequestStatus @default(BOOKED)
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-
-  // Customer Address
-  street    String
-  city      String
-  stateCode String
-  zipCode   String
-
-  // Shipping details
-  shippingLabelUrl String?
-  trackingNumber   String?
-  shippingStatus   ShippingStatus @default(PENDING_LABEL)
-  shippingCarrier  String?
-
-  // Relations
-  customerId String
-  customer   User   @relation("RequestCustomer", fields: [customerId], references: [id])
-
-  // Offers
-  offers   Offer[]   @relation("RequestOffers")
-  messages Message[] @relation("RequestMessages")
-
-  // Selected technician
-  technicianId String?
-  technician   TechnicianProfile? @relation("RequestsTaken", fields: [technicianId], references: [userId])
-
-  // Final review
-  review Review?
-}
-
-model Offer {
-  id          String      @id @default(uuid())
-  amount      Float
-  description String
-  status      OfferStatus @default(PENDING)
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-  attempts    Int         @default(1) // Track number of offer attempts
-
-  // Who sent this
-  technicianId String
-  technician   TechnicianProfile @relation("OffersSent", fields: [technicianId], references: [userId])
-
-  // For which request is this sent for
-  requestId String
-  request   Request @relation("RequestOffers", fields: [requestId], references: [id])
-
-  // Shipping estimate
-  shippingEstimate Float
-  estimatedTime    Int // Days
-}
-
-model TechnicianAddress {
-  id        String @id @default(uuid())
-  street    String
-  city      String
-  stateCode String
-  zipCode   String
-
-  technicianProfileId String            @unique
-  technicianProfile   TechnicianProfile @relation(fields: [technicianProfileId], references: [userId])
-}
-
-model Review {
-  id          String   @id @default(uuid())
-  rating      Int
-  description String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  // Relations
-  reviewerId String
-  reviewer   User   @relation("Reviewer", fields: [reviewerId], references: [id])
-
-  revieweeId String
-  reviewee   User   @relation("Reviewee", fields: [revieweeId], references: [id])
-
-  // Link to the request this review is for
-  requestId String  @unique
-  request   Request @relation(fields: [requestId], references: [id])
-}
-
-model PortfolioItem {
-  id          String   @id @default(uuid())
-  title       String
-  description String
-  images      String[] // URLs to portfolio images
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  // Link to the technician
-  technicianId String
-  technician   TechnicianProfile @relation(fields: [technicianId], references: [userId])
-}
-
-model Message {
-  id         String   @id @default(uuid())
-  senderId   String
-  receiverId String
-  content    String
-  createdAt  DateTime @default(now())
-
-  requestId String
-  request   Request @relation("RequestMessages", fields: [requestId], references: [id])
-
-  sender   User @relation("SentMessages", fields: [senderId], references: [id])
-  receiver User @relation("ReceivedMessages", fields: [receiverId], references: [id])
 }

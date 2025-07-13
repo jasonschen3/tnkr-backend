@@ -16,7 +16,7 @@ dotenv.config();
 
 const router = express.Router();
 
-const secretKey = process.env.SECRET_KEY;
+const secretKey = process.env.JWT_SECRET_KEY;
 const saltRounds = 10;
 
 const transporter = nodemailer.createTransport({
@@ -121,7 +121,7 @@ async function hashPassword(password) {
 
 async function checkEmailExists(email) {
   try {
-    const user = await prisma.user.findUnique({
+    const user = await prisma.User.findUnique({
       where: {
         email: email,
       },

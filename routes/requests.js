@@ -8,7 +8,7 @@ import {
   getCache,
   setCache,
   invalidateCache,
-  TEN_MINUTE_TLL,
+  TEN_MINUTE_TTL,
 } from "../utils/cache.js";
 
 const router = express.Router();
@@ -159,7 +159,7 @@ router.get("/current", verifyToken, async (req, res) => {
       redisClient,
       cacheCurrentRequestKey,
       requests,
-      TEN_MINUTE_TLL
+      TEN_MINUTE_TTL
     );
 
     return res.status(200).json(requests);
@@ -196,7 +196,7 @@ router.get("/completed", verifyToken, async (req, res) => {
       redisClient,
       cacheCompletedRequestKey,
       requests,
-      TEN_MINUTE_TLL
+      TEN_MINUTE_TTL
     );
 
     return res.status(200).json(requests);

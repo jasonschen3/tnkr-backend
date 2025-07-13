@@ -3,7 +3,6 @@ import bodyParser from "body-parser";
 import cors from "cors";
 import env from "dotenv";
 
-import Stripe from "stripe";
 import { prisma } from "./lib/prisma.js";
 import { createClient } from "redis";
 
@@ -12,8 +11,9 @@ import userRoutes from "./routes/users.js";
 import requestsRoutes from "./routes/requests.js";
 import chatRoutes from "./routes/chat.js";
 
-import { WebSocketServer } from "ws";
-import { createServer } from "http";
+import { Server } from "socket.io";
+import { createServer } from "node:http";
+import jwt from "jsonwebtoken";
 
 env.config();
 
@@ -31,7 +31,9 @@ const redisClient = createClient();
 // createClient({
 //   url: 'redis://alice:foobared@awesome.redis.server:6380'
 // });
-redisClient.on("error", (err) => console.log("Redis Client Error", err));
+redisClient.on("error", (error) =>
+  console.log("Redis Client Error", error.message)
+);
 await redisClient.connect();
 app.locals.redisClient = redisClient;
 
@@ -39,229 +41,185 @@ app.locals.redisClient = redisClient;
 
 // const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
-// --------- WebSocket for messaging ---------
+// --------- SocketIO for messaging ---------
 
-const wss = new WebSocketServer({ port: 8080 });
+const socketServer = createServer(app);
 
-wss.on("connection", (socket) => {
-  console.log("Client connected");
+const io = new Server(socketServer, {
+  cors: {
+    origin: process.env.FRONTEND_URL,
+    methods: ["GET", "POST"],
+  },
+});
 
-  socket.on("message", (message) => {
-    console.log("Received:", message);
-    socket.send(`Server says: ${message}`);
+// Make io available to routes
+app.locals.io = io;
+
+// Middleware: runs before "connection" event for auth
+io.use((socket, next) => {
+  const token = socket.handshake.auth.token;
+  if (!token) {
+    return next(new Error("Missing token"));
+  }
+
+  try {
+    const user = jwt.verify(token, process.env.JWT_SECRET_KEY);
+    socket.user = user;
+    next();
+  } catch {
+    next(new Error("Invalid token"));
+  }
+});
+
+// On connection, give socket instance
+io.on("connection", (socket) => {
+  console.log("User connected:", socket.user.id);
+
+  // Join user to their personal room
+  socket.join(`user:${socket.user.id}`);
+
+  socket.on("send message", async (messageData, callback) => {
+    console.log("Received send message request:", {
+      messageData,
+      userId: socket.user.id,
+    });
+    try {
+      const { receiverId, content } = messageData;
+
+      // Rate limiting using Redis (stateless)
+      const rateLimitKey = `rate_limit:${socket.user.id}`;
+      const now = Date.now();
+      const windowStart = now - 60000; // 1 minute window
+
+      try {
+        // Get current rate limit data from Redis
+        const rateLimitData = await redisClient.get(rateLimitKey);
+        let messageCount = 0;
+
+        if (rateLimitData) {
+          const messages = JSON.parse(rateLimitData);
+          // Filter messages within the current window
+          const recentMessages = messages.filter(
+            (timestamp) => timestamp > windowStart
+          );
+          messageCount = recentMessages.length;
+        }
+
+        if (messageCount >= 10) {
+          // Max 10 messages per minute
+          return callback({
+            status: "error",
+            error:
+              "Rate limit exceeded. Please wait before sending more messages.",
+          });
+        }
+
+        // Add current message timestamp
+        let messages = [];
+        if (rateLimitData) {
+          messages = JSON.parse(rateLimitData);
+        }
+        messages.push(now);
+
+        // Store updated rate limit data with 1 minute expiration
+        await redisClient.setEx(rateLimitKey, 60, JSON.stringify(messages));
+      } catch (error) {
+        console.error("Rate limiting error:", error);
+        // Continue without rate limiting if Redis fails
+      }
+
+      // Input validation
+      if (
+        !content ||
+        typeof content !== "string" ||
+        content.trim().length === 0
+      ) {
+        return callback({
+          status: "error",
+          error: "Message content is required and cannot be empty",
+        });
+      }
+
+      if (!receiverId || typeof receiverId !== "string") {
+        return callback({
+          status: "error",
+          error: "Receiver ID is required",
+        });
+      }
+
+      // Sanitize content to prevent XSS
+      const sanitizedContent = content.trim();
+
+      // Verify the receiver exists
+      const receiver = await prisma.User.findUnique({
+        where: { id: receiverId },
+        select: { id: true },
+      });
+
+      if (!receiver) {
+        return callback({
+          status: "error",
+          error: "Recipient user not found",
+        });
+      }
+
+      // Create message in database
+      const message = await prisma.Message.create({
+        data: {
+          content: sanitizedContent,
+          senderId: socket.user.id,
+          receiverId,
+        },
+        include: {
+          sender: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              profilePictureUrl: true,
+            },
+          },
+          receiver: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              profilePictureUrl: true,
+            },
+          },
+        },
+      });
+
+      // Send to receiver using Socket.IO rooms (stateless approach)
+      io.to(`user:${receiverId}`).emit("new message", message);
+
+      // Send confirmation to sender
+      callback({ status: "ok", message });
+    } catch (error) {
+      console.error("Error sending message:", error);
+      callback({ status: "error", error: "Failed to send message" });
+    }
   });
 
-  socket.on("close", () => {
-    console.log("Client disconnected");
+  socket.on("join conversation", (requestId) => {
+    socket.join(`request:${requestId}`);
+    console.log(
+      `User ${socket.user.id} joined conversation for request ${requestId}`
+    );
+  });
+
+  socket.on("leave conversation", (requestId) => {
+    socket.leave(`request:${requestId}`);
+    console.log(
+      `User ${socket.user.id} left conversation for request ${requestId}`
+    );
+  });
+
+  socket.on("disconnect", (reason) => {
+    console.log("User disconnected:", socket.user.id, reason);
   });
 });
 
-// const server = createServer(app); // Creates HTTP server from Express app
-// const wss = new WebSocketServer({ server });
-
-// // Store active connections
-const connections = new Map();
-
-// wss.on("connection", (ws, req) => {
-//   console.log("New WebSocket connection");
-
-//   const token = localStorage.get("token");
-//   const user = token.user;
-//   console.log("USER", user);
-
-//   if (!user) {
-//     ws.close(1008, "Unauthorized");
-//     return;
-//   }
-
-//   // Store connection
-//   connections.set(user.id, ws);
-//   console.log(`User ${user.id} connected`);
-
-//   // Send online status to user
-//   ws.send(
-//     JSON.stringify({
-//       type: "CONNECTED",
-//       userId: user.id,
-//     })
-//   );
-
-//   ws.on("message", async (data) => {
-//     try {
-//       const message = JSON.parse(data);
-
-//       switch (message.type) {
-//         case "SEND_MESSAGE":
-//           await handleSendMessage(ws, message, user.id);
-//           break;
-
-//         case "TYPING_START":
-//           handleTypingStart(ws, message, user.id);
-//           break;
-
-//         case "TYPING_STOP":
-//           handleTypingStop(ws, message, user.id);
-//           break;
-
-//         case "MARK_AS_READ":
-//           await handleMarkAsRead(ws, message, user.id);
-//           break;
-
-//         default:
-//           ws.send(
-//             JSON.stringify({
-//               type: "ERROR",
-//               message: "Unknown message type",
-//             })
-//           );
-//       }
-//     } catch (error) {
-//       console.error("WebSocket message error:", error);
-//       ws.send(
-//         JSON.stringify({
-//           type: "ERROR",
-//           message: "Invalid message format",
-//         })
-//       );
-//     }
-//   });
-
-//   ws.on("close", () => {
-//     connections.delete(user.id);
-//     console.log(`User ${user.id} disconnected`);
-//   });
-// });
-
-// // WebSocket message handlers
-// async function handleSendMessage(ws, message, senderId) {
-//   const { receiverId, content, requestId } = message;
-
-//   try {
-//     // Save message to database
-//     const savedMessage = await prisma.Message.create({
-//       data: {
-//         content,
-//         senderId,
-//         receiverId,
-//         requestId,
-//       },
-//       include: {
-//         sender: {
-//           select: {
-//             id: true,
-//             firstName: true,
-//             lastName: true,
-//             profilePictureUrl: true,
-//           },
-//         },
-//         receiver: {
-//           select: {
-//             id: true,
-//             firstName: true,
-//             lastName: true,
-//             profilePictureUrl: true,
-//           },
-//         },
-//       },
-//     });
-
-//     // Send to receiver if online
-//     const receiverWs = connections.get(receiverId);
-//     if (receiverWs && receiverWs.readyState === 1) {
-//       receiverWs.send(
-//         JSON.stringify({
-//           type: "NEW_MESSAGE",
-//           message: {
-//             id: savedMessage.id,
-//             content: savedMessage.content,
-//             sender: savedMessage.sender,
-//             receiver: savedMessage.receiver,
-//             requestId: savedMessage.requestId,
-//             createdAt: savedMessage.createdAt,
-//           },
-//         })
-//       );
-//     }
-
-//     // Confirm to sender
-//     ws.send(
-//       JSON.stringify({
-//         type: "MESSAGE_SENT",
-//         messageId: savedMessage.id,
-//       })
-//     );
-//   } catch (error) {
-//     console.error("Error saving message:", error);
-//     ws.send(
-//       JSON.stringify({
-//         type: "ERROR",
-//         message: "Failed to send message",
-//       })
-//     );
-//   }
-// }
-
-// function handleTypingStart(ws, message, senderId) {
-//   const { receiverId } = message;
-//   const receiverWs = connections.get(receiverId);
-
-//   if (receiverWs && receiverWs.readyState === 1) {
-//     receiverWs.send(
-//       JSON.stringify({
-//         type: "TYPING_START",
-//         senderId,
-//       })
-//     );
-//   }
-// }
-
-// function handleTypingStop(ws, message, senderId) {
-//   const { receiverId } = message;
-//   const receiverWs = connections.get(receiverId);
-
-//   if (receiverWs && receiverWs.readyState === 1) {
-//     receiverWs.send(
-//       JSON.stringify({
-//         type: "TYPING_STOP",
-//         senderId,
-//       })
-//     );
-//   }
-// }
-
-// async function handleMarkAsRead(ws, message, userId) {
-//   const { senderId } = message;
-
-//   try {
-//     // You can add an isRead field to your Message model if needed
-//     // await prisma.Message.updateMany({
-//     //   where: {
-//     //     senderId,
-//     //     receiverId: userId,
-//     //     isRead: false
-//     //   },
-//     //   data: { isRead: true }
-//     // });
-
-//     // Notify sender that messages were read
-//     const senderWs = connections.get(senderId);
-//     if (senderWs && senderWs.readyState === 1) {
-//       senderWs.send(
-//         JSON.stringify({
-//           type: "MESSAGES_READ",
-//           readerId: userId,
-//         })
-//       );
-//     }
-//   } catch (error) {
-//     console.error("Error marking messages as read:", error);
-//   }
-// }
-
-app.get("/", (req, res) => {
-  res.send("Hello World");
-});
-
-app.listen(process.env.BACKEND_PORT, () => {
+socketServer.listen(process.env.BACKEND_PORT, () => {
   console.log(`Server is running on port ${process.env.BACKEND_PORT}`);
 });

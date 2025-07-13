@@ -14,18 +14,17 @@ Table User {
   password String [not null]
   isVerified Boolean [not null, default: false]
   profilePictureUrl String
-  ratingsGiven Review [not null]
-  ratingsReceived Review [not null]
+  receivedMessages Message [not null]
+  sentMessages Message [not null]
   customerRequests Request [not null]
+  ratingsReceived Review [not null]
+  ratingsGiven Review [not null]
   technicianProfile TechnicianProfile
   TechnicianVerification TechnicianVerification
-  sentMessages Message [not null]
-  receivedMessages Message [not null]
 }
 
 Table TechnicianProfile {
   userId String [pk]
-  user User [not null]
   servicesProvided ServiceType[] [not null]
   businessName String [not null]
   businessRegistered Boolean [not null]
@@ -35,15 +34,15 @@ Table TechnicianProfile {
   bio String [not null]
   isVerifiedTechnician Boolean [not null]
   offers Offer [not null]
-  requestsTaken Request [not null]
   portfolio PortfolioItem [not null]
+  requestsTaken Request [not null]
   technicianAddress TechnicianAddress
+  user User [not null]
 }
 
 Table TechnicianVerification {
   id String [pk]
   technicianId String [unique, not null]
-  technician User [not null]
   idFrontUrl String [not null]
   idBackUrl String [not null]
   selfieUrl String [not null]
@@ -53,6 +52,7 @@ Table TechnicianVerification {
   rejectionReason String
   createdAt DateTime [default: `now()`, not null]
   updatedAt DateTime [not null]
+  technician User [not null]
 }
 
 Table VerificationToken {
@@ -76,20 +76,20 @@ Table Request {
   service ServiceType [not null]
   subtypes String[] [not null]
   requestStatus RequestStatus [not null, default: 'BOOKED']
-  createdAt DateTime [default: `now()`, not null]
-  updatedAt DateTime [not null]
-  street String [not null]
-  city String [not null]
-  stateCode String [not null]
-  zipCode String [not null]
   shippingLabelUrl String
   trackingNumber String
   shippingStatus ShippingStatus [not null, default: 'PENDING_LABEL']
   shippingCarrier String
   customerId String [not null]
-  customer User [not null]
-  offers Offer [not null]
   technicianId String
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+  city String [not null]
+  stateCode String [not null]
+  street String [not null]
+  zipCode String [not null]
+  offers Offer [not null]
+  customer User [not null]
   technician TechnicianProfile
   review Review
 }
@@ -103,11 +103,11 @@ Table Offer {
   updatedAt DateTime [not null]
   attempts Int [not null, default: 1]
   technicianId String [not null]
-  technician TechnicianProfile [not null]
   requestId String [not null]
-  request Request [not null]
   shippingEstimate Float [not null]
   estimatedTime Int [not null]
+  request Request [not null]
+  technician TechnicianProfile [not null]
 }
 
 Table TechnicianAddress {
@@ -127,11 +127,11 @@ Table Review {
   createdAt DateTime [default: `now()`, not null]
   updatedAt DateTime [not null]
   reviewerId String [not null]
-  reviewer User [not null]
   revieweeId String [not null]
-  reviewee User [not null]
   requestId String [unique, not null]
   request Request [not null]
+  reviewee User [not null]
+  reviewer User [not null]
 }
 
 Table PortfolioItem {
@@ -151,8 +151,8 @@ Table Message {
   receiverId String [not null]
   content String [not null]
   createdAt DateTime [default: `now()`, not null]
-  sender User [not null]
   receiver User [not null]
+  sender User [not null]
 }
 
 Enum Role {
@@ -251,20 +251,20 @@ Ref: Request.customerId > User.id
 
 Ref: Request.technicianId > TechnicianProfile.userId
 
-Ref: Offer.technicianId > TechnicianProfile.userId
-
 Ref: Offer.requestId > Request.id
+
+Ref: Offer.technicianId > TechnicianProfile.userId
 
 Ref: TechnicianAddress.technicianProfileId - TechnicianProfile.userId
 
-Ref: Review.reviewerId > User.id
+Ref: Review.requestId - Request.id
 
 Ref: Review.revieweeId > User.id
 
-Ref: Review.requestId - Request.id
+Ref: Review.reviewerId > User.id
 
 Ref: PortfolioItem.technicianId > TechnicianProfile.userId
 
-Ref: Message.senderId > User.id
-
 Ref: Message.receiverId > User.id
+
+Ref: Message.senderId > User.id
