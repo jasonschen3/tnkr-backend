@@ -243,6 +243,12 @@ router.post("/message/:otherUserId", verifyToken, async (req, res) => {
     // Emit real-time notification via Socket.IO (stateless approach)
     const io = req.app.locals.io;
     if (io) {
+      console.log("REST endpoint emitting new message to receiver:", {
+        receiverId: otherUserId,
+        messageId: message.id,
+        senderId: message.senderId,
+        messageReceiverId: message.receiverId,
+      });
       io.to(`user:${otherUserId}`).emit("new message", message);
     }
 

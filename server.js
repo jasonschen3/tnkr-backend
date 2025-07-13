@@ -77,6 +77,7 @@ io.on("connection", (socket) => {
 
   // Join user to their personal room
   socket.join(`user:${socket.user.id}`);
+  console.log("User joined room:", `user:${socket.user.id}`);
 
   socket.on("send message", async (messageData, callback) => {
     console.log("Received send message request:", {
@@ -191,6 +192,12 @@ io.on("connection", (socket) => {
       });
 
       // Send to receiver using Socket.IO rooms (stateless approach)
+      console.log("Emitting new message to receiver:", {
+        receiverId,
+        messageId: message.id,
+        senderId: message.senderId,
+        messageReceiverId: message.receiverId,
+      });
       io.to(`user:${receiverId}`).emit("new message", message);
 
       // Send confirmation to sender
