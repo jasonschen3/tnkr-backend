@@ -36,38 +36,32 @@ export async function uploadProfilePictureS3(file, userId) {
 }
 
 export async function uploadRequestPhotosS3(file, userId, requestId) {
-  return uploadToS3(file, `requests/${userId}`, requestId);
+  // Generate a unique identifier for each photo to prevent overwriting
+  const timestamp = Date.now();
+  const randomId = Math.random().toString(36).substring(2, 15);
+  const uniqueId = `${userId}_${timestamp}_${randomId}`;
+  return uploadToS3(file, `requests/${requestId}`, uniqueId);
 }
 
 // Delete all photos for a specific request
 export async function deleteRequestPhotosS3(userId, requestId) {
   try {
-    // List all objects in the user's requests folder
+    // List all objects in the request folder
     const listParams = {
       Bucket: process.env.BUCKET_NAME,
-      Prefix: `requests/${userId}/`,
+      Prefix: `requests/${requestId}/`,
     };
 
     const listCommand = new ListObjectsV2Command(listParams);
     const listResult = await s3.send(listCommand);
 
     if (!listResult.Contents) {
-      console.log("No objects found for user:", userId);
+      console.log("No objects found for request:", requestId);
       return;
     }
 
-    // Filter objects that belong to the specific request
-    const requestObjects = listResult.Contents.filter((obj) =>
-      obj.Key.includes(`requests/${userId}/${requestId}`)
-    );
-
-    if (requestObjects.length === 0) {
-      console.log("No photos found for request:", requestId);
-      return;
-    }
-
-    // Delete all objects for this request
-    const deletePromises = requestObjects.map((obj) => {
+    // Delete all objects in the request folder
+    const deletePromises = listResult.Contents.map((obj) => {
       const deleteParams = {
         Bucket: process.env.BUCKET_NAME,
         Key: obj.Key,
@@ -78,7 +72,7 @@ export async function deleteRequestPhotosS3(userId, requestId) {
 
     await Promise.all(deletePromises);
     console.log(
-      `Deleted ${requestObjects.length} photos for request:`,
+      `Deleted ${listResult.Contents.length} photos for request:`,
       requestId
     );
   } catch (error) {
