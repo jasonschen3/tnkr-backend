@@ -1,5 +1,0 @@
--- AlterEnum
-ALTER TYPE "Role" ADD VALUE 'COLLECTOR';
-
--- AlterTable
-ALTER TABLE "users" ALTER COLUMN "role" SET DEFAULT 'COLLECTOR';

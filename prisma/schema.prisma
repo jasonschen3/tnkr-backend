@@ -43,6 +43,7 @@ model TechnicianProfile {
   socialMediaLink      String[]
   bio                  String             @db.VarChar(1024)
   isVerifiedTechnician Boolean
+  verificationStatus   VerificationStatus @default(PENDING)
   offers               Offer[]            @relation("OffersSent")
   portfolio            PortfolioItem[]
   requestsTaken        Request[]          @relation("RequestsTaken")

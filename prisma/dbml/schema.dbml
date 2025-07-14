@@ -33,6 +33,7 @@ Table TechnicianProfile {
   socialMediaLink String[] [not null]
   bio String [not null]
   isVerifiedTechnician Boolean [not null]
+  verificationStatus VerificationStatus [not null, default: 'PENDING']
   offers Offer [not null]
   portfolio PortfolioItem [not null]
   requestsTaken Request [not null]
