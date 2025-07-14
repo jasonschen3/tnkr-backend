@@ -3,7 +3,10 @@ import { prisma } from "../lib/prisma.js";
 import { verifyToken, verifyRole } from "./auth.js";
 import { requireTechnicianVerification } from "../middleware/technicianVerification.js";
 import multer from "multer";
-import { uploadRequestPhotosS3 } from "../utils/s3Upload.js";
+import {
+  uploadRequestPhotosS3,
+  deleteRequestPhotosS3,
+} from "../utils/s3Upload.js";
 import {
   getCacheKey,
   getCache,
@@ -288,6 +291,60 @@ router.get("/:id", verifyToken, async (req, res) => {
     console.error("Error fetching request:", error);
     return res.status(500).json({
       error: "Failed to fetch request",
+      details: error.message,
+    });
+  }
+});
+
+// Delete request - only allowed for BOOKED status
+router.delete("/:id", verifyToken, verifyRole("CUSTOMER"), async (req, res) => {
+  const { id } = req.params;
+  const userId = req.user.id;
+  const redisClient = req.app.locals.redisClient;
+  const cacheCurrentRequestKey = getCacheKey(userId, "current-requests");
+
+  try {
+    // First, check if the request exists and belongs to the user
+    const request = await prisma.Request.findFirst({
+      where: {
+        id: id,
+        customerId: userId,
+      },
+    });
+
+    if (!request) {
+      return res.status(404).json({
+        error: "Request not found or you don't have permission to delete it",
+      });
+    }
+
+    // Check if the request is in BOOKED status
+    if (request.requestStatus !== "BOOKED") {
+      return res.status(400).json({
+        error: "Only requests in BOOKED status can be deleted",
+      });
+    }
+
+    // Delete photos from S3 first
+    await deleteRequestPhotosS3(userId, id);
+
+    // Delete the request
+    await prisma.Request.delete({
+      where: {
+        id: id,
+      },
+    });
+
+    // Invalidate cache
+    invalidateCache(redisClient, cacheCurrentRequestKey);
+
+    return res.status(200).json({
+      message: "Request deleted successfully",
+    });
+  } catch (error) {
+    console.error("Error deleting request:", error);
+    return res.status(500).json({
+      error: "Failed to delete request",
       details: error.message,
     });
   }

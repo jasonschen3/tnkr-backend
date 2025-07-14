@@ -1,4 +1,9 @@
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import {
+  S3Client,
+  PutObjectCommand,
+  DeleteObjectCommand,
+  ListObjectsV2Command,
+} from "@aws-sdk/client-s3";
 
 const s3 = new S3Client({
   credentials: {
@@ -32,4 +37,52 @@ export async function uploadProfilePictureS3(file, userId) {
 
 export async function uploadRequestPhotosS3(file, userId, requestId) {
   return uploadToS3(file, `requests/${userId}`, requestId);
+}
+
+// Delete all photos for a specific request
+export async function deleteRequestPhotosS3(userId, requestId) {
+  try {
+    // List all objects in the user's requests folder
+    const listParams = {
+      Bucket: process.env.BUCKET_NAME,
+      Prefix: `requests/${userId}/`,
+    };
+
+    const listCommand = new ListObjectsV2Command(listParams);
+    const listResult = await s3.send(listCommand);
+
+    if (!listResult.Contents) {
+      console.log("No objects found for user:", userId);
+      return;
+    }
+
+    // Filter objects that belong to the specific request
+    const requestObjects = listResult.Contents.filter((obj) =>
+      obj.Key.includes(`requests/${userId}/${requestId}`)
+    );
+
+    if (requestObjects.length === 0) {
+      console.log("No photos found for request:", requestId);
+      return;
+    }
+
+    // Delete all objects for this request
+    const deletePromises = requestObjects.map((obj) => {
+      const deleteParams = {
+        Bucket: process.env.BUCKET_NAME,
+        Key: obj.Key,
+      };
+      const deleteCommand = new DeleteObjectCommand(deleteParams);
+      return s3.send(deleteCommand);
+    });
+
+    await Promise.all(deletePromises);
+    console.log(
+      `Deleted ${requestObjects.length} photos for request:`,
+      requestId
+    );
+  } catch (error) {
+    console.error("Error deleting request photos from S3:", error);
+    // Don't throw error to prevent request deletion from failing if S3 deletion fails
+  }
 }
