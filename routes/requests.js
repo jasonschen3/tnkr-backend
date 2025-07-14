@@ -1,6 +1,7 @@
 import express from "express";
 import { prisma } from "../lib/prisma.js";
 import { verifyToken, verifyRole } from "./auth.js";
+import { requireTechnicianVerification } from "../middleware/technicianVerification.js";
 import multer from "multer";
 import { uploadRequestPhotosS3 } from "../utils/s3Upload.js";
 import {
@@ -210,6 +211,7 @@ router.get(
   "/technicianRequests",
   verifyToken,
   verifyRole("TECHNICIAN"),
+  requireTechnicianVerification,
   async (req, res) => {
     const { limit, cursor } = req.query;
     const parsedLimited = parseInt(limit);

@@ -239,6 +239,7 @@ router.post("/register", upload.single("photo"), async (req, res) => {
     await sendVerificationEmail(email, verificationCode);
 
     // Don't send password back in response
+    // eslint-disable-next-line no-unused-vars
     const { password: _, ...userWithoutPassword } = newUser;
     return res.status(201).json({
       ...userWithoutPassword,

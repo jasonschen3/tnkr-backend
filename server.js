@@ -10,6 +10,7 @@ import authRoutes from "./routes/auth.js";
 import userRoutes from "./routes/users.js";
 import requestsRoutes from "./routes/requests.js";
 import chatRoutes from "./routes/chat.js";
+import technicianRoutes from "./routes/technicians.js";
 
 import { Server } from "socket.io";
 import { createServer } from "node:http";
@@ -25,6 +26,7 @@ app.use("/auth", authRoutes);
 app.use("/users", userRoutes);
 app.use("/requests", requestsRoutes);
 app.use("/chat", chatRoutes);
+app.use("/technicians", technicianRoutes);
 
 // --------- Cache client ---------
 const redisClient = createClient();
